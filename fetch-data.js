@@ -199,12 +199,25 @@ function parseFormulaVal(val) {
   return val;
 }
 
+// 字段名标准化：去掉 lookup(🔗) / formula(⚙️) 等 emoji 前缀，方便前端统一使用
+function normalizeFieldName(name) {
+  return name
+    .replace(/^\u{1F517}\s*/u, '')   // 🔗
+    .replace(/^\u{2699}\u{FE0F}\s*/u, '') // ⚙️
+    .trim();
+}
+
 // =============================================
 //  解析整表数据
 // =============================================
 function parseTable(tableId) {
   console.log(`  Fetching fields...`);
-  const fieldsMeta = fetchFields(tableId);
+  const rawFieldsMeta = fetchFields(tableId);
+  const fieldsMeta = rawFieldsMeta.map(fm => ({
+    ...fm,
+    originalName: fm.name,
+    name: normalizeFieldName(fm.name)
+  }));
   console.log(`  ${fieldsMeta.length} fields: ${fieldsMeta.map(f => f.name).join(', ')}`);
 
   console.log(`  Fetching records...`);
@@ -215,7 +228,7 @@ function parseTable(tableId) {
     const fields = rec.fields || {};
 
     fieldsMeta.forEach(fm => {
-      const rawVal = fields[fm.name];
+      const rawVal = fields[fm.originalName];
       row[fm.name] = parseVal(rawVal, fm.type, fm.property);
     });
 

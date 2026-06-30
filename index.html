@@ -294,7 +294,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 利润分析 -->
     <div class="section">
-      <div class="section-label">利润分析 <span class="dim-toggle" id="profitDimToggle"><button class="dim-btn active" data-dim="channel">渠道</button><button class="dim-btn" data-dim="platform">平台</button></span></div>
+      <div class="section-label">利润分析</div>
       <div class="g2" style="margin-bottom:14px">
         <div class="card">
           <div class="card-head"><div><div class="card-title" id="modeProfitTitle">销售模式利润对比</div><div class="card-sub" id="modeProfitSub">同款不同渠道的单件毛利差异(元)</div></div><span class="card-period" id="modeProfitPeriod"></span></div>
@@ -315,9 +315,9 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
     <div class="section">
       <div class="section-label">退货退款监控</div>
       <div class="card">
-        <div class="card-head"><div><div class="card-title">退款率趋势</div><div class="card-sub">仅退款率 vs 退货退款率（按月汇总）· 点选款式图例切换</div></div><span class="card-period" id="returnPeriod"></span></div>
+        <div class="card-head"><div><div class="card-title">退款率趋势</div><div class="card-sub" id="returnSub">仅退款率 vs 退货退款率（按月汇总）</div></div><span class="card-period" id="returnPeriod"></span></div>
         <div class="legend-row" id="returnLegend"></div>
-        <div class="cw h200"><canvas id="returnChart"></canvas></div>
+        <div class="cw h220"><canvas id="returnChart"></canvas></div>
       </div>
     </div>
 
@@ -415,7 +415,6 @@ var anchorDisplayCount = 10;
 var buyerDisplayCount = 10;
 var curPlatform = 'all';
 var curBuyerType = 'all';
-var profitDimension = 'channel';
 var salesQtyType = 'net';
 var refundMetric = 'amount';
 var refundType = 'total';
@@ -1295,21 +1294,52 @@ function renderSalesChart() {
 function renderProfitCharts() {
   try {
     var sales = getFilteredSales();
-    var isChannel = profitDimension === 'channel';
+
+    // Auto-determine view level based on channel selection
+    var viewLevel = 'channel'; // default: channel overview
+    var singleChannel = null;
+    if (selectedChannels.size === 1) {
+      var ch = Array.from(selectedChannels)[0];
+      if (ch === '自营' || ch === '达播') {
+        viewLevel = 'platform';
+        singleChannel = ch;
+      }
+    }
+
+    var isChannel = viewLevel === 'channel';
     var dimColors = isChannel ? CHANNEL_COLORS : PLATFORM_COLORS;
     var dimLabel = isChannel ? '渠道' : '平台';
-    document.getElementById('modeProfitTitle').textContent = isChannel ? '销售模式利润对比' : '平台利润对比';
-    document.getElementById('modeProfitSub').textContent = isChannel ? '同款不同渠道的单件毛利差异(元)' : '同款不同平台的单件毛利差异(元)';
-    document.getElementById('channelProfitTitle').textContent = isChannel ? '渠道累计利润贡献' : '平台累计利润贡献';
-    document.getElementById('channelProfitSub').textContent = '筛选时间范围内各' + dimLabel + '累计毛利额';
-    document.getElementById('channelPerfTitle').textContent = isChannel ? '渠道表现对比' : '平台表现对比';
-    document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 按' + dimLabel + '维度';
+
+    // Titles adapt to view level
+    if (isChannel) {
+      document.getElementById('modeProfitTitle').textContent = '销售模式利润对比';
+      document.getElementById('modeProfitSub').textContent = '同款不同渠道的单件毛利差异(元)';
+      document.getElementById('channelProfitTitle').textContent = '渠道累计利润贡献';
+      document.getElementById('channelProfitSub').textContent = '筛选时间范围内各渠道累计毛利额';
+      document.getElementById('channelPerfTitle').textContent = '渠道表现对比';
+      document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 量价关系一目了然';
+    } else {
+      var prefix = singleChannel === '自营' ? '自营' : '达播';
+      document.getElementById('modeProfitTitle').textContent = prefix + '平台利润对比';
+      document.getElementById('modeProfitSub').textContent = prefix + '各平台单件毛利差异(元)';
+      document.getElementById('channelProfitTitle').textContent = prefix + '平台利润贡献';
+      document.getElementById('channelProfitSub').textContent = prefix + '各平台累计毛利额';
+      document.getElementById('channelPerfTitle').textContent = prefix + '平台表现对比';
+      document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 按' + dimLabel + '维度';
+    }
+
+    // Dimension key extractor
+    function getDim(s) {
+      if (isChannel) return s._channel;
+      // platform view: group by platform within the single channel
+      return s._platform || '未知';
+    }
 
     var styleDimGP = {};
     var styleNames = [];
     sales.forEach(function(s) {
       var name = s['款式名称'] || '未知';
-      var dim = isChannel ? s._channel : (s._platform || '未知');
+      var dim = getDim(s);
       var unitGP = s._unitGP;
       var qty = s._netQty;
       if (!styleDimGP[name]) { styleDimGP[name] = {}; styleNames.push(name); }
@@ -1319,7 +1349,7 @@ function renderProfitCharts() {
     });
 
     var dimKeys = [];
-    sales.forEach(function(s) { var dim = isChannel ? s._channel : (s._platform || '未知'); if (dimKeys.indexOf(dim) === -1) dimKeys.push(dim); });
+    sales.forEach(function(s) { var dim = getDim(s); if (dimKeys.indexOf(dim) === -1) dimKeys.push(dim); });
 
     var modeDatasets = dimKeys.map(function(dim) {
       var data = styleNames.map(function(name) { var d = styleDimGP[name] && styleDimGP[name][dim]; return d && d.qty > 0 ? Math.round(d.totalGP / d.qty) : 0; });
@@ -1333,7 +1363,7 @@ function renderProfitCharts() {
     });
 
     var dimTotalGP = {};
-    sales.forEach(function(s) { var dim = isChannel ? s._channel : (s._platform || '未知'); if (!dimTotalGP[dim]) dimTotalGP[dim] = 0; dimTotalGP[dim] += s._netQty * s._unitGP; });
+    sales.forEach(function(s) { var dim = getDim(s); if (!dimTotalGP[dim]) dimTotalGP[dim] = 0; dimTotalGP[dim] += s._netQty * s._unitGP; });
     var profitDims = Object.keys(dimTotalGP);
     var profitValues = profitDims.map(function(dim) { return Math.round(dimTotalGP[dim]); });
     var profitColors = profitDims.map(function(dim) { return dimColors[dim] || '#999'; });
@@ -1346,7 +1376,7 @@ function renderProfitCharts() {
     });
 
     var dimPerf = {};
-    sales.forEach(function(s) { var dim = isChannel ? s._channel : (s._platform || '未知'); if (!dimPerf[dim]) dimPerf[dim] = { qty: 0, gsv: 0 }; dimPerf[dim].qty += s._netQty; dimPerf[dim].gsv += s._gsv; });
+    sales.forEach(function(s) { var dim = getDim(s); if (!dimPerf[dim]) dimPerf[dim] = { qty: 0, gsv: 0 }; dimPerf[dim].qty += s._netQty; dimPerf[dim].gsv += s._gsv; });
     var perfDims = Object.keys(dimPerf);
     var perfQty = perfDims.map(function(dim) { return Math.round(dimPerf[dim].qty); });
     var perfGSV = perfDims.map(function(dim) { return dimPerf[dim].gsv; });
@@ -1366,65 +1396,133 @@ function renderProfitCharts() {
 
 function renderReturnChart() {
   try {
-    var sales = getFilteredSales();
-    var refunds = getFilteredRefunds();
-
-    var buckets = {};
-    function addToBucket(key, only, ret, total, onlyQty, retQty, totalQty) {
-      if (!buckets[key]) buckets[key] = { only:0, ret:0, total:0, onlyQty:0, retQty:0, totalQty:0 };
-      buckets[key].only += only; buckets[key].ret += ret; buckets[key].total += total;
-      buckets[key].onlyQty += onlyQty; buckets[key].retQty += retQty; buckets[key].totalQty += totalQty;
+    // Auto-determine breakdown level based on channel selection
+    var viewLevel = 'channel';
+    var singleChannel = null;
+    if (selectedChannels.size === 1) {
+      var ch = Array.from(selectedChannels)[0];
+      if (ch === '自营' || ch === '达播') {
+        viewLevel = 'platform';
+        singleChannel = ch;
+      }
     }
 
+    // Update subtitle
+    var returnSubEl = document.getElementById('returnSub');
+    if (viewLevel === 'channel') {
+      returnSubEl.textContent = '退款金额趋势（按渠道分线）';
+    } else {
+      var prefix = singleChannel === '自营' ? '自营' : '达播';
+      returnSubEl.textContent = prefix + '各平台退款金额趋势';
+    }
+
+    // Group key extractor
+    function getGroupKey(s) {
+      if (viewLevel === 'channel') return s._channel;
+      return s._platform || '未知';
+    }
+
+    var allSales = getFilteredSales();
+    var allRefunds = getFilteredRefunds();
+
+    // Compute refund metrics per time bucket per group
+    var buckets = {}; // { timeKey: { groupName: { only:0, ret:0, total:0, onlyQty:0, retQty:0, totalQty:0 } } }
+
     var totalGMV = 0, totalQty = 0;
-    sales.forEach(function(s) { totalGMV += s._gmv; totalQty += s._qty; });
+    allSales.forEach(function(s) { totalGMV += s._gmv; totalQty += s._qty; });
     var avgPrice = totalQty > 0 ? totalGMV / totalQty : 0;
 
-    sales.forEach(function(s) {
-      var key = refundTimeUnit === 'week' ? getWeekKey(s['销售日期']) : ('M' + String(getMonthFromDate(s['销售日期']) + 1).padStart(2, '0'));
-      if (!key) return;
+    allSales.forEach(function(s) {
+      var timeKey = refundTimeUnit === 'week' ? getWeekKey(s['销售日期']) : ('M' + String(getMonthFromDate(s['销售日期']) + 1).padStart(2, '0'));
+      if (!timeKey) return;
+      var group = getGroupKey(s);
       var onlyAmt = s._refundOnly;
       var retAmt = s._refundReturn;
       var totalAmt = onlyAmt + retAmt;
       var onlyQty = avgPrice > 0 ? onlyAmt / avgPrice : 0;
       var retQty = avgPrice > 0 ? retAmt / avgPrice : 0;
       var totalQtyEst = onlyQty + retQty;
-      addToBucket(key, onlyAmt, retAmt, totalAmt, onlyQty, retQty, totalQtyEst);
+      if (!buckets[timeKey]) buckets[timeKey] = {};
+      if (!buckets[timeKey][group]) buckets[timeKey][group] = { only:0, ret:0, total:0, onlyQty:0, retQty:0, totalQty:0 };
+      buckets[timeKey][group].only += onlyAmt;
+      buckets[timeKey][group].ret += retAmt;
+      buckets[timeKey][group].total += totalAmt;
+      buckets[timeKey][group].onlyQty += onlyQty;
+      buckets[timeKey][group].retQty += retQty;
+      buckets[timeKey][group].totalQty += totalQtyEst;
     });
 
-    refunds.forEach(function(r) {
-      var key = refundTimeUnit === 'week' ? (r['退款周次'] || getWeekKey(r['销售日期'])) : ('M' + String(getMonthFromDate(r['销售日期']) + 1).padStart(2, '0'));
-      if (!key) return;
+    allRefunds.forEach(function(r) {
+      var timeKey = refundTimeUnit === 'week' ? (r['退款周次'] || getWeekKey(r['销售日期'])) : ('M' + String(getMonthFromDate(r['销售日期']) + 1).padStart(2, '0'));
+      if (!timeKey) return;
+      var group = getGroupKey(r);
       var onlyAmt = num(r['仅退款金额（款式级）']);
       var retAmt = num(r['退货退款金额（款式级）']);
       var totalAmt = num(r['退款总金额（款式级）']) || (onlyAmt + retAmt);
       var onlyQty = avgPrice > 0 ? onlyAmt / avgPrice : 0;
       var retQty = avgPrice > 0 ? retAmt / avgPrice : 0;
       var totalQtyEst = onlyQty + retQty;
-      addToBucket(key, onlyAmt, retAmt, totalAmt, onlyQty, retQty, totalQtyEst);
+      if (!buckets[timeKey]) buckets[timeKey] = {};
+      if (!buckets[timeKey][group]) buckets[timeKey][group] = { only:0, ret:0, total:0, onlyQty:0, retQty:0, totalQty:0 };
+      buckets[timeKey][group].only += onlyAmt;
+      buckets[timeKey][group].ret += retAmt;
+      buckets[timeKey][group].total += totalAmt;
+      buckets[timeKey][group].onlyQty += onlyQty;
+      buckets[timeKey][group].retQty += retQty;
+      buckets[timeKey][group].totalQty += totalQtyEst;
     });
 
-    var keys = Object.keys(buckets).sort();
-    var labels = keys.map(function(k) { return refundTimeUnit === 'week' ? k.replace('-W', '周') : k.replace('M', '') + '月'; });
-    var data = keys.map(function(k) {
-      var b = buckets[k];
-      if (refundMetric === 'amount') {
-        if (refundType === 'only') return b.only;
-        if (refundType === 'return') return b.ret;
-        return b.total;
-      } else {
-        if (refundType === 'only') return b.onlyQty;
-        if (refundType === 'return') return b.retQty;
-        return b.totalQty;
-      }
+    // Determine group names from data
+    var groupNames = [];
+    allSales.forEach(function(s) { var g = getGroupKey(s); if (groupNames.indexOf(g) === -1) groupNames.push(g); });
+    allRefunds.forEach(function(r) { var g = getGroupKey(r); if (groupNames.indexOf(g) === -1) groupNames.push(g); });
+
+    var colors = viewLevel === 'channel' ? CHANNEL_COLORS : PLATFORM_COLORS;
+
+    var timeKeys = Object.keys(buckets).sort();
+    var labels = timeKeys.map(function(k) { return refundTimeUnit === 'week' ? k.replace('-W', '周') : k.replace('M', '') + '月'; });
+
+    // Build datasets per group
+    var datasets = groupNames.map(function(group) {
+      var data = timeKeys.map(function(tk) {
+        var b = buckets[tk] && buckets[tk][group];
+        if (!b) return 0;
+        if (refundMetric === 'amount') {
+          if (refundType === 'only') return b.only;
+          if (refundType === 'return') return b.ret;
+          return b.total;
+        } else {
+          if (refundType === 'only') return b.onlyQty;
+          if (refundType === 'return') return b.retQty;
+          return b.totalQty;
+        }
+      });
+      var color = colors[group] || '#999';
+      var typeName = refundType === 'only' ? '仅退款' : (refundType === 'return' ? '退货退款' : '总退款');
+      return {
+        label: group + ' ' + typeName,
+        data: data,
+        borderColor: color,
+        backgroundColor: color + '18',
+        borderWidth: 2,
+        pointRadius: 3,
+        tension: 0.3,
+        fill: false
+      };
     });
+
+    var unitLabel = refundMetric === 'amount' ? '¥' : '件';
+    var yCallback = refundMetric === 'amount' ? function(v){return (v/10000).toFixed(0)+'万';} : function(v){return v+'件';};
 
     if (CHARTS.return) CHARTS.return.destroy();
     CHARTS.return = new Chart(document.getElementById('returnChart'), {
       type: 'line',
-      data: { labels: labels, datasets: [{ label: refundType === 'only' ? '仅退款' : (refundType === 'return' ? '退货退款' : '总退款'), data: data, borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.1)', borderWidth: 2, pointRadius: 3, tension: 0.3, fill: true }] },
-      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: { backgroundColor:'#1A1A18', cornerRadius:8, padding:10, callbacks: { label: function(ctx) { return ctx.dataset.label + '：' + (refundMetric === 'amount' ? '¥' + Math.round(ctx.parsed.y).toLocaleString('zh-CN') : Math.round(ctx.parsed.y) + '件'); } } } }, scales: { x: { grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}} }, y: { beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, callback:function(v){return refundMetric === 'amount' ? (v/10000).toFixed(0)+'万' : v+'件';}} } } }
+      data: { labels: labels, datasets: datasets },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position:'bottom', labels:{font:{size:9},padding:8,usePointStyle:true,pointStyle:'circle'} }, tooltip: { backgroundColor:'#1A1A18', cornerRadius:8, padding:10, callbacks: { label: function(ctx) { return ctx.dataset.label + '：' + (refundMetric === 'amount' ? '¥' + Math.round(ctx.parsed.y).toLocaleString('zh-CN') : Math.round(ctx.parsed.y) + '件'); } } } }, scales: { x: { grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}} }, y: { beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:10}, callback:yCallback} } } }
     });
+
+    // Hide unused legend row
+    document.getElementById('returnLegend').style.display = 'none';
   } catch(e) { console.error('renderReturnChart error:', e); }
 }
 
@@ -1861,48 +1959,12 @@ document.querySelectorAll('.fbtn[data-filter="buyerType"]').forEach(function(btn
   });
 });
 
-document.querySelectorAll('#profitDimToggle .dim-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#profitDimToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    profitDimension = btn.dataset.dim;
-    renderProfitCharts();
-  });
-});
-
 document.querySelectorAll('#salesQtyToggle .dim-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('#salesQtyToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     salesQtyType = btn.dataset.qty;
     renderSalesChart();
-  });
-});
-
-document.querySelectorAll('#refundMetricToggle .dim-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#refundMetricToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    refundMetric = btn.dataset.metric;
-    renderReturnChart();
-  });
-});
-
-document.querySelectorAll('#refundTypeToggle .dim-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#refundTypeToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    refundType = btn.dataset.rtype;
-    renderReturnChart();
-  });
-});
-
-document.querySelectorAll('#refundTimeToggle .dim-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('#refundTimeToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    refundTimeUnit = btn.dataset.tunit;
-    renderReturnChart();
   });
 });
 

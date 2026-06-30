@@ -213,11 +213,13 @@ function normalizeFieldName(name) {
 function parseTable(tableId) {
   console.log(`  Fetching fields...`);
   const rawFieldsMeta = fetchFields(tableId);
-  const fieldsMeta = rawFieldsMeta.map(fm => ({
-    ...fm,
-    originalName: fm.name,
-    name: normalizeFieldName(fm.name)
-  }));
+  const fieldsMeta = rawFieldsMeta
+    .filter(fm => !fm.name.includes('_旧'))  // 过滤废弃的link字段
+    .map(fm => ({
+      ...fm,
+      originalName: fm.name,
+      name: normalizeFieldName(fm.name)
+    }));
   console.log(`  ${fieldsMeta.length} fields: ${fieldsMeta.map(f => f.name).join(', ')}`);
 
   console.log(`  Fetching records...`);

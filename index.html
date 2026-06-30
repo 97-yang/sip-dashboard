@@ -34,19 +34,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","H
 .error-box .msg{color:var(--text2);font-size:11px;text-align:center;max-width:400px;line-height:1.6}
 
 /* FILTER BAR */
-.filter-bar{background:var(--surface);border-radius:var(--radius);padding:12px 16px;box-shadow:var(--shadow);border:.5px solid var(--border);margin-bottom:20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
-.filter-section{display:flex;align-items:center;gap:6px}
-.filter-label{font-size:9px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-right:2px;white-space:nowrap}
-.filter-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
-.fbtn{padding:4px 10px;border-radius:14px;font-size:10px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.filter-row{background:var(--surface);border-radius:var(--radius);padding:10px 16px;box-shadow:var(--shadow);border:.5px solid var(--border);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.filter-label{font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap}
+.filter-group{display:flex;align-items:center;gap:5px}
+.fbtn{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
 .fbtn:hover{border-color:var(--accent);color:var(--accent)}
 .fbtn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.fbtn.sub{font-size:9px;padding:3px 8px;border-radius:10px}
-.fbtn.sub.active{background:var(--accent-lt);color:var(--accent);border-color:var(--accent)}
-.period-chips{display:flex;gap:4px;flex-wrap:wrap;max-height:52px;overflow-y:auto;align-items:center}
+.fbtn.sm{font-size:10px;padding:3px 9px;border-radius:10px}
+.fbtn.sm.active{background:var(--accent-lt);color:var(--accent);border-color:var(--accent)}
+.period-chips{display:flex;gap:4px;flex-wrap:wrap;align-items:center}
 .period-chip{padding:3px 9px;border-radius:10px;font-size:10px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap;line-height:1.4}
 .period-chip:hover{border-color:var(--accent);color:var(--accent)}
 .period-chip.active{background:var(--accent-lt);color:var(--accent);border-color:var(--accent)}
+.range-arrow{font-size:11px;color:var(--text3);font-weight:400;margin:0 2px}
+.range-hint{font-size:9px;color:var(--accent);font-weight:500;margin-left:6px;white-space:nowrap}
+.fsel{padding:3px 8px;border-radius:10px;font-size:10px;border:1px solid var(--border);background:var(--surface);color:var(--text1);cursor:pointer;font-family:inherit;height:24px;box-sizing:border-box}
+.fsel option{font-size:10px}
+input[type="date"].fsel::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer;width:12px;height:12px}
+
+/* TABLE SORT & LOAD MORE */
 .pt th.sortable{cursor:pointer;user-select:none;position:relative;padding-right:16px}
 .pt th.sortable:hover{color:var(--accent)}
 .pt th.sortable::after{content:'⇅';position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:8px;opacity:.4}
@@ -54,9 +60,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","H
 .pt th.sortable.sort-desc::after{content:'↓';opacity:1;color:var(--accent)}
 .load-more-btn{display:block;margin:10px auto;padding:4px 16px;border-radius:10px;font-size:10px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s}
 .load-more-btn:hover{border-color:var(--accent);color:var(--accent)}
-select.fsel,input[type="date"].fsel{padding:3px 8px;border-radius:10px;font-size:10px;border:1px solid var(--border);background:var(--surface);color:var(--text1);cursor:pointer;font-family:inherit;height:24px;box-sizing:border-box}
-input[type="date"].fsel::-webkit-calendar-picker-indicator{opacity:.5;cursor:pointer;width:12px;height:12px}
-#weekRangeHint{font-size:10px;color:var(--text2);font-weight:500;margin-left:6px;white-space:nowrap}
 
 /* KPI ROW */
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin-bottom:22px}
@@ -213,45 +216,61 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
   <!-- 仪表盘内容 -->
   <div id="dashboardContent" style="display:none">
 
-    <!-- FILTER BAR -->
-    <div class="filter-bar">
-      <div class="filter-section" style="flex-wrap:wrap;row-gap:8px">
-        <span class="filter-label">时间</span>
-        <div class="period-granularity" style="display:flex;gap:4px">
-          <button class="fbtn" data-filter="period" data-val="day">日</button>
-          <button class="fbtn" data-filter="period" data-val="week">周</button>
-          <button class="fbtn active" data-filter="period" data-val="month">月</button>
-          <button class="fbtn" data-filter="period" data-val="quarter">季</button>
-          <button class="fbtn" data-filter="period" data-val="year">年</button>
-        </div>
-        <select id="yearSel" class="fsel"></select>
-        <div id="periodChips" class="period-chips"></div>
-        <input type="date" id="dayStart" class="fsel" style="display:none">
-        <span id="daySep" style="display:none;font-size:10px;color:var(--text3)">至</span>
-        <input type="date" id="dayEnd" class="fsel" style="display:none">
+    <!-- FILTER: 时间行 -->
+    <div class="filter-row" id="timeRow">
+      <span class="filter-label">时间</span>
+      <div class="filter-group">
+        <button class="fbtn" data-filter="period" data-val="day">日</button>
+        <button class="fbtn" data-filter="period" data-val="week">周</button>
+        <button class="fbtn active" data-filter="period" data-val="month">月</button>
+        <button class="fbtn" data-filter="period" data-val="quarter">季</button>
+        <button class="fbtn" data-filter="period" data-val="year">年</button>
       </div>
-      <div class="filter-sep"></div>
-      <div class="filter-section">
-        <span class="filter-label">渠道</span>
-        <button class="fbtn active" data-filter="channel" data-val="all">全部</button>
-        <button class="fbtn sub" data-filter="channel" data-val="自营">自营</button>
-        <button class="fbtn sub" data-filter="channel" data-val="达播">达播</button>
-        <button class="fbtn sub" data-filter="channel" data-val="买手店">买手店</button>
+      <!-- 日: 日期范围 -->
+      <span id="dayRangeBox" style="display:none" class="filter-group">
+        <input type="date" id="dayStart" class="fsel">
+        <span class="range-arrow">→</span>
+        <input type="date" id="dayEnd" class="fsel">
+      </span>
+      <!-- 周: 起止周下拉 + 日期hint -->
+      <span id="weekRangeBox" style="display:none" class="filter-group">
+        <select id="weekStart" class="fsel"></select>
+        <span class="range-arrow">→</span>
+        <select id="weekEnd" class="fsel"></select>
+        <span id="weekRangeHint" class="range-hint"></span>
+      </span>
+      <!-- 月: 起止月下拉 -->
+      <span id="monthRangeBox" class="filter-group">
+        <select id="monthStart" class="fsel"></select>
+        <span class="range-arrow">→</span>
+        <select id="monthEnd" class="fsel"></select>
+      </span>
+      <!-- 季/年: chip多选 -->
+      <div id="quarterChips" class="period-chips" style="display:none"></div>
+      <div id="yearChips" class="period-chips" style="display:none"></div>
+    </div>
+
+    <!-- FILTER: 渠道行 -->
+    <div class="filter-row" id="channelRow">
+      <span class="filter-label">渠道</span>
+      <div class="filter-group">
+        <button class="fbtn sm active" data-filter="channel" data-val="all">全部</button>
+        <button class="fbtn sm" data-filter="channel" data-val="自营">自营</button>
+        <button class="fbtn sm" data-filter="channel" data-val="达播">达播</button>
+        <button class="fbtn sm" data-filter="channel" data-val="买手店">买手店</button>
       </div>
-      <div class="filter-sep" id="platformSep"></div>
-      <div class="filter-section" id="platformFilter">
-        <span class="filter-label">平台</span>
-        <button class="fbtn sub active" data-filter="platform" data-val="all">全部</button>
-        <button class="fbtn sub" data-filter="platform" data-val="淘宝">淘宝</button>
-        <button class="fbtn sub" data-filter="platform" data-val="抖音">抖音</button>
-        <button class="fbtn sub" data-filter="platform" data-val="小红书">小红书</button>
+      <span class="filter-label" id="platformLabel">平台</span>
+      <div class="filter-group" id="platformFilter">
+        <button class="fbtn sm active" data-filter="platform" data-val="all">全部</button>
+        <button class="fbtn sm" data-filter="platform" data-val="淘宝">淘宝</button>
+        <button class="fbtn sm" data-filter="platform" data-val="抖音">抖音</button>
+        <button class="fbtn sm" data-filter="platform" data-val="小红书">小红书</button>
       </div>
-      <div class="filter-sep" id="buyerTypeSep" style="display:none"></div>
-      <div class="filter-section" id="buyerTypeFilter" style="display:none">
-        <span class="filter-label">买手店类型</span>
-        <button class="fbtn sub active" data-filter="buyerType" data-val="all">全部</button>
-        <button class="fbtn sub" data-filter="buyerType" data-val="线上">线上</button>
-        <button class="fbtn sub" data-filter="buyerType" data-val="线下">线下</button>
+      <span class="filter-label" id="buyerTypeLabel" style="display:none">类型</span>
+      <div class="filter-group" id="buyerTypeFilter" style="display:none">
+        <button class="fbtn sm active" data-filter="buyerType" data-val="all">全部</button>
+        <button class="fbtn sm" data-filter="buyerType" data-val="线上">线上</button>
+        <button class="fbtn sm" data-filter="buyerType" data-val="线下">线下</button>
       </div>
     </div>
 
@@ -679,12 +698,22 @@ function getPeriodText() {
   if (curPeriod === 'day') {
     var start = document.getElementById('dayStart').value;
     var end = document.getElementById('dayEnd').value;
-    return start + ' 至 ' + end;
+    return start + ' → ' + end;
+  }
+  if (curPeriod === 'month') {
+    var sM = parseInt(document.getElementById('monthStart').value) + 1;
+    var eM = parseInt(document.getElementById('monthEnd').value) + 1;
+    return sM + '月 → ' + eM + '月';
+  }
+  if (curPeriod === 'week') {
+    var sW = parseInt(document.getElementById('weekStart').value);
+    var eW = parseInt(document.getElementById('weekEnd').value);
+    return '第' + sW + '周 → 第' + eW + '周';
   }
   var keys = Array.from(selectedPeriodKeys).sort();
   if (keys.length === 0) return '未选择';
   if (keys.length <= 3) return keys.map(function(k) { return getPeriodLabelFromKey(k, curPeriod); }).join('、');
-  return keys[0].replace(/-.*$/, '') + '年 ' + keys.length + '个' + ({month:'月',quarter:'季度',week:'周',year:'年'}[curPeriod] || '周期');
+  return keys[0].replace(/-.*$/, '') + '年 ' + keys.length + '个' + ({quarter:'季度',year:'年'}[curPeriod] || '周期');
 }
 
 async function loadData() {
@@ -907,9 +936,9 @@ function updatePlatformAndBuyerTypeVisibility() {
   var hasAnchor = selectedChannels.has('达播');
   var hasBuyer = selectedChannels.has('买手店');
   document.getElementById('platformFilter').style.display = (hasSelf || hasAnchor) ? 'flex' : 'none';
-  document.getElementById('platformSep').style.display = (hasSelf || hasAnchor) ? 'block' : 'none';
+  document.getElementById('platformLabel').style.display = (hasSelf || hasAnchor) ? 'inline' : 'none';
   document.getElementById('buyerTypeFilter').style.display = hasBuyer ? 'flex' : 'none';
-  document.getElementById('buyerTypeSep').style.display = (hasBuyer && (hasSelf || hasAnchor)) ? 'block' : 'none';
+  document.getElementById('buyerTypeLabel').style.display = hasBuyer ? 'inline' : 'none';
 }
 
 function updatePeriodLabel() {
@@ -928,13 +957,7 @@ function initFilters(json) {
   var years = new Set();
   DB.sales.forEach(function(s) { var y = getYearFromDate(s['销售日期']); if (y) years.add(y); });
   DB.refunds.forEach(function(r) { var y = getYearFromDate(r['销售日期']); if (y) years.add(y); });
-  var yearSel = document.getElementById('yearSel');
-  yearSel.innerHTML = '';
-  var yearArr = Array.from(years).sort();
-  if (yearArr.length === 0) yearArr = [new Date().getFullYear()];
-  yearArr.forEach(function(y) { var opt = document.createElement('option'); opt.value = y; opt.textContent = y + '年'; yearSel.appendChild(opt); });
-  yearSel.value = yearArr[yearArr.length - 1];
-  curYear = parseInt(yearSel.value);
+  curYear = years.size > 0 ? Math.max.apply(null, Array.from(years)) : new Date().getFullYear();
 
   // 默认最近30天（日视图）
   var today = new Date();
@@ -944,82 +967,147 @@ function initFilters(json) {
   curDateStart = document.getElementById('dayStart').value;
   curDateEnd = document.getElementById('dayEnd').value;
 
-  // 默认选中当前月份
-  var curMonthKey = curYear + '-' + String(today.getMonth() + 1).padStart(2, '0');
-  selectedPeriodKeys = new Set([curMonthKey]);
+  // 填充月份下拉
+  populateMonthSelects();
+  // 填充周下拉
+  populateWeekSelects();
+
+  // 默认选中当前月
+  var curMonthIdx = today.getMonth(); // 0-based
+  document.getElementById('monthStart').value = curMonthIdx;
+  document.getElementById('monthEnd').value = curMonthIdx;
+  applyMonthRange();
+
+  // 默认选中当前周
+  var curWeekKey = getWeekKey(formatDate(today));
+  if (curWeekKey) {
+    var weekNum = parseInt(curWeekKey.split('-W')[1]);
+    document.getElementById('weekStart').value = weekNum;
+    document.getElementById('weekEnd').value = weekNum;
+    applyWeekRange();
+  }
+
+  // 填充年chips
+  buildYearChips(years);
 
   // 事件绑定
-  yearSel.addEventListener('change', function() {
-    curYear = parseInt(this.value);
-    if (curPeriod !== 'day' && curPeriod !== 'year') {
-      selectedPeriodKeys.clear();
-      rebuildPeriodChips();
-      autoSelectCurrentPeriod();
-    } else if (curPeriod === 'year') {
-      rebuildPeriodChips();
-    }
-    renderAll();
-  });
   document.getElementById('dayStart').addEventListener('change', function() { curDateStart = this.value; renderAll(); });
   document.getElementById('dayEnd').addEventListener('change', function() { curDateEnd = this.value; renderAll(); });
+  document.getElementById('monthStart').addEventListener('change', function() { applyMonthRange(); renderAll(); });
+  document.getElementById('monthEnd').addEventListener('change', function() { applyMonthRange(); renderAll(); });
+  document.getElementById('weekStart').addEventListener('change', function() { applyWeekRange(); updateWeekRangeHint(); renderAll(); });
+  document.getElementById('weekEnd').addEventListener('change', function() { applyWeekRange(); updateWeekRangeHint(); renderAll(); });
 
-  buildPeriodChips();
   updateRangeSelectorVisibility();
   updatePlatformAndBuyerTypeVisibility();
   updatePeriodLabel();
   updateAllPeriodBadges();
+  updateWeekRangeHint();
 }
 
-function getAvailablePeriodKeys() {
-  var keys = new Set();
-  var granularity = curPeriod;
-  DB.sales.forEach(function(s) {
-    var k = getPeriodKeyFromDate(s['销售日期'], granularity);
-    if (k) keys.add(k);
-  });
-  DB.refunds.forEach(function(r) {
-    var k = getPeriodKeyFromDate(r['销售日期'], granularity);
-    if (k) keys.add(k);
-  });
-  return Array.from(keys).sort();
-}
-
-function buildPeriodChips() {
-  var container = document.getElementById('periodChips');
-  container.innerHTML = '';
-  if (curPeriod === 'day') return;
-
-  var availableKeys;
-  if (curPeriod === 'year') {
-    availableKeys = getAvailablePeriodKeys();
-  } else {
-    // For month/quarter/week, generate all periods for current year + any that have data
-    availableKeys = [];
-    if (curPeriod === 'month') {
-      for (var m = 1; m <= 12; m++) availableKeys.push(curYear + '-' + String(m).padStart(2, '0'));
-    } else if (curPeriod === 'quarter') {
-      for (var q = 1; q <= 4; q++) availableKeys.push(curYear + '-Q' + q);
-    } else if (curPeriod === 'week') {
-      for (var w = 1; w <= 52; w++) availableKeys.push(curYear + '-W' + String(w).padStart(2, '0'));
-    }
-    // Add any keys from data that aren't in the current year
-    var dataKeys = getAvailablePeriodKeys();
-    dataKeys.forEach(function(k) { if (availableKeys.indexOf(k) === -1) availableKeys.push(k); });
-    availableKeys.sort();
+function populateMonthSelects() {
+  var startSel = document.getElementById('monthStart');
+  var endSel = document.getElementById('monthEnd');
+  startSel.innerHTML = '';
+  endSel.innerHTML = '';
+  for (var m = 0; m < 12; m++) {
+    var opt1 = document.createElement('option'); opt1.value = m; opt1.textContent = (m + 1) + '月'; startSel.appendChild(opt1);
+    var opt2 = document.createElement('option'); opt2.value = m; opt2.textContent = (m + 1) + '月'; endSel.appendChild(opt2);
   }
+}
 
-  availableKeys.forEach(function(key) {
+function populateWeekSelects() {
+  var startSel = document.getElementById('weekStart');
+  var endSel = document.getElementById('weekEnd');
+  startSel.innerHTML = '';
+  endSel.innerHTML = '';
+  // ISO weeks: up to 52/53
+  for (var w = 1; w <= 53; w++) {
+    var opt1 = document.createElement('option'); opt1.value = w; opt1.textContent = '第' + w + '周'; startSel.appendChild(opt1);
+    var opt2 = document.createElement('option'); opt2.value = w; opt2.textContent = '第' + w + '周'; endSel.appendChild(opt2);
+  }
+}
+
+function applyMonthRange() {
+  var startM = parseInt(document.getElementById('monthStart').value);
+  var endM = parseInt(document.getElementById('monthEnd').value);
+  if (startM > endM) { endM = startM; document.getElementById('monthEnd').value = startM; }
+  selectedPeriodKeys.clear();
+  for (var m = startM; m <= endM; m++) {
+    selectedPeriodKeys.add(curYear + '-' + String(m + 1).padStart(2, '0'));
+  }
+  updatePeriodLabel();
+  updateAllPeriodBadges();
+}
+
+function applyWeekRange() {
+  var startW = parseInt(document.getElementById('weekStart').value);
+  var endW = parseInt(document.getElementById('weekEnd').value);
+  if (startW > endW) { endW = startW; document.getElementById('weekEnd').value = startW; }
+  selectedPeriodKeys.clear();
+  for (var w = startW; w <= endW; w++) {
+    selectedPeriodKeys.add(curYear + '-W' + String(w).padStart(2, '0'));
+  }
+  updatePeriodLabel();
+  updateAllPeriodBadges();
+}
+
+function updateWeekRangeHint() {
+  var hint = document.getElementById('weekRangeHint');
+  var startW = parseInt(document.getElementById('weekStart').value);
+  var endW = parseInt(document.getElementById('weekEnd').value);
+  if (!startW || !endW) { hint.textContent = ''; return; }
+  var startRange = getWeekDateRange(curYear, startW);
+  var endRange = getWeekDateRange(curYear, endW);
+  if (!startRange || !endRange) { hint.textContent = ''; return; }
+  var sStr = (startRange.start.getMonth() + 1) + '/' + startRange.start.getDate();
+  var eStr = (endRange.end.getMonth() + 1) + '/' + endRange.end.getDate();
+  hint.textContent = sStr + '~' + eStr;
+}
+
+function buildQuarterChips() {
+  var container = document.getElementById('quarterChips');
+  container.innerHTML = '';
+  for (var q = 1; q <= 4; q++) {
+    var key = curYear + '-Q' + q;
     var chip = document.createElement('button');
     chip.className = 'period-chip' + (selectedPeriodKeys.has(key) ? ' active' : '');
-    chip.textContent = getPeriodLabelFromKey(key, curPeriod);
+    chip.textContent = 'Q' + q;
     chip.dataset.key = key;
     chip.addEventListener('click', function() {
-      if (selectedPeriodKeys.has(key)) {
-        if (selectedPeriodKeys.size > 1) selectedPeriodKeys.delete(key);
+      var k = this.dataset.key;
+      if (selectedPeriodKeys.has(k)) {
+        if (selectedPeriodKeys.size > 1) selectedPeriodKeys.delete(k);
       } else {
-        selectedPeriodKeys.add(key);
+        selectedPeriodKeys.add(k);
       }
-      buildPeriodChips();
+      buildQuarterChips();
+      updatePeriodLabel();
+      updateAllPeriodBadges();
+      renderAll();
+    });
+    container.appendChild(chip);
+  }
+}
+
+function buildYearChips(yearsSet) {
+  var container = document.getElementById('yearChips');
+  container.innerHTML = '';
+  var years = yearsSet ? Array.from(yearsSet).sort() : [new Date().getFullYear()];
+  years.forEach(function(y) {
+    var key = String(y);
+    var chip = document.createElement('button');
+    chip.className = 'period-chip' + (selectedPeriodKeys.has(key) ? ' active' : '');
+    chip.textContent = y + '年';
+    chip.dataset.key = key;
+    chip.addEventListener('click', function() {
+      var k = this.dataset.key;
+      if (selectedPeriodKeys.has(k)) {
+        if (selectedPeriodKeys.size > 1) selectedPeriodKeys.delete(k);
+      } else {
+        selectedPeriodKeys.add(k);
+      }
+      buildYearChips(yearsSet);
       updatePeriodLabel();
       updateAllPeriodBadges();
       renderAll();
@@ -1028,29 +1116,20 @@ function buildPeriodChips() {
   });
 }
 
-function rebuildPeriodChips() { buildPeriodChips(); }
-
-function autoSelectCurrentPeriod() {
-  var today = new Date();
-  var key = getPeriodKeyFromDate(formatDate(today), curPeriod);
-  if (key && document.querySelector('.period-chip[data-key="' + key + '"]')) {
-    selectedPeriodKeys = new Set([key]);
-  } else {
-    // Select the most recent available period
-    var chips = document.querySelectorAll('.period-chip');
-    if (chips.length > 0) selectedPeriodKeys = new Set([chips[chips.length - 1].dataset.key]);
-  }
-  buildPeriodChips();
-}
-
 function updateRangeSelectorVisibility() {
   var isDay = curPeriod === 'day';
+  var isWeek = curPeriod === 'week';
+  var isMonth = curPeriod === 'month';
+  var isQuarter = curPeriod === 'quarter';
   var isYear = curPeriod === 'year';
-  document.getElementById('periodChips').style.display = isDay ? 'none' : 'flex';
-  document.getElementById('yearSel').style.display = isYear ? 'none' : 'inline-block';
-  document.getElementById('dayStart').style.display = isDay ? 'inline-block' : 'none';
-  document.getElementById('daySep').style.display = isDay ? 'inline' : 'none';
-  document.getElementById('dayEnd').style.display = isDay ? 'inline-block' : 'none';
+
+  document.getElementById('dayRangeBox').style.display = isDay ? 'inline-flex' : 'none';
+  document.getElementById('weekRangeBox').style.display = isWeek ? 'inline-flex' : 'none';
+  document.getElementById('monthRangeBox').style.display = isMonth ? 'inline-flex' : 'none';
+  document.getElementById('quarterChips').style.display = isQuarter ? 'flex' : 'none';
+  document.getElementById('yearChips').style.display = isYear ? 'flex' : 'none';
+
+  if (isQuarter) buildQuarterChips();
 }
 
 function calcKPISummary(sales) {
@@ -1682,12 +1761,37 @@ document.querySelectorAll('.fbtn[data-filter="period"]').forEach(function(btn) {
     document.querySelectorAll('.fbtn[data-filter="period"]').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     curPeriod = btn.dataset.val;
-    // Reset selection for new granularity
+    // Reset and set defaults for new granularity
     selectedPeriodKeys.clear();
-    if (curPeriod !== 'day') {
-      autoSelectCurrentPeriod();
+    var today = new Date();
+    if (curPeriod === 'day') {
+      // defaults already set by initFilters
+    } else if (curPeriod === 'month') {
+      var curM = today.getMonth();
+      document.getElementById('monthStart').value = curM;
+      document.getElementById('monthEnd').value = curM;
+      applyMonthRange();
+    } else if (curPeriod === 'week') {
+      var curWeekKey = getWeekKey(formatDate(today));
+      if (curWeekKey) {
+        var wn = parseInt(curWeekKey.split('-W')[1]);
+        document.getElementById('weekStart').value = wn;
+        document.getElementById('weekEnd').value = wn;
+        applyWeekRange();
+      }
+    } else if (curPeriod === 'quarter') {
+      var curQ = Math.floor(today.getMonth() / 3) + 1;
+      selectedPeriodKeys.add(curYear + '-Q' + curQ);
+    } else if (curPeriod === 'year') {
+      selectedPeriodKeys.add(String(today.getFullYear()));
+      // Rebuild year chips based on data years
+      var years = new Set();
+      DB.sales.forEach(function(s) { var y = getYearFromDate(s['销售日期']); if (y) years.add(y); });
+      DB.refunds.forEach(function(r) { var y = getYearFromDate(r['销售日期']); if (y) years.add(y); });
+      buildYearChips(years);
     }
     updateRangeSelectorVisibility();
+    if (curPeriod === 'week') updateWeekRangeHint();
     updatePeriodLabel();
     updateAllPeriodBadges();
     renderAll();

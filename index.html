@@ -36,6 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","H
 /* FILTER BAR */
 .filter-row{background:var(--surface);border-radius:var(--radius);padding:10px 16px;box-shadow:var(--shadow);border:.5px solid var(--border);margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .filter-label{font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap}
+.filter-sep{width:1px;height:22px;background:var(--border);flex-shrink:0}
 .filter-group{display:flex;align-items:center;gap:5px}
 .fbtn{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer;transition:all .15s;white-space:nowrap}
 .fbtn:hover{border-color:var(--accent);color:var(--accent)}
@@ -226,6 +227,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
         <button class="fbtn" data-filter="period" data-val="quarter">季</button>
         <button class="fbtn" data-filter="period" data-val="year">年</button>
       </div>
+      <div class="filter-sep"></div>
       <!-- 日: 日期范围 -->
       <span id="dayRangeBox" style="display:none" class="filter-group">
         <input type="date" id="dayStart" class="fsel">
@@ -255,6 +257,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
         <button class="fbtn sm" data-filter="channel" data-val="达播">达播</button>
         <button class="fbtn sm" data-filter="channel" data-val="买手店">买手店</button>
       </div>
+      <div class="filter-sep" id="platformSep"></div>
       <span class="filter-label" id="platformLabel">平台</span>
       <div class="filter-group" id="platformFilter">
         <button class="fbtn sm active" data-filter="platform" data-val="all">全部</button>
@@ -262,6 +265,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
         <button class="fbtn sm" data-filter="platform" data-val="抖音">抖音</button>
         <button class="fbtn sm" data-filter="platform" data-val="小红书">小红书</button>
       </div>
+      <div class="filter-sep" id="buyerTypeSep" style="display:none"></div>
       <span class="filter-label" id="buyerTypeLabel" style="display:none">类型</span>
       <div class="filter-group" id="buyerTypeFilter" style="display:none">
         <button class="fbtn sm active" data-filter="buyerType" data-val="all">全部</button>
@@ -925,10 +929,13 @@ function updatePlatformAndBuyerTypeVisibility() {
   var hasSelf = selectedChannels.has('自营');
   var hasAnchor = selectedChannels.has('达播');
   var hasBuyer = selectedChannels.has('买手店');
-  document.getElementById('platformFilter').style.display = (hasSelf || hasAnchor) ? 'flex' : 'none';
-  document.getElementById('platformLabel').style.display = (hasSelf || hasAnchor) ? 'inline' : 'none';
+  var showPlatform = hasSelf || hasAnchor;
+  document.getElementById('platformFilter').style.display = showPlatform ? 'flex' : 'none';
+  document.getElementById('platformLabel').style.display = showPlatform ? 'inline' : 'none';
+  document.getElementById('platformSep').style.display = showPlatform ? 'block' : 'none';
   document.getElementById('buyerTypeFilter').style.display = hasBuyer ? 'flex' : 'none';
   document.getElementById('buyerTypeLabel').style.display = hasBuyer ? 'inline' : 'none';
+  document.getElementById('buyerTypeSep').style.display = (hasBuyer && showPlatform) ? 'block' : 'none';
 }
 
 function updatePeriodLabel() {

@@ -415,6 +415,8 @@ var invSortDir = 'desc';
 var invDisplayCount = 10;
 var anchorDisplayCount = 10;
 var buyerDisplayCount = 10;
+var salesDisplayCount = 10;
+var heatmapDisplayCount = 10;
 var curPlatform = 'all';
 var curBuyerType = 'all';
 var salesQtyType = 'net';
@@ -1268,9 +1270,17 @@ function renderSalesChart() {
     });
 
     var styleNames = Object.keys(styleQty);
-    if (!salesChartActiveStyles) salesChartActiveStyles = new Set(styleNames);
+    // 按总销量排序款式，销量多的排前面
+    var styleTotalQty = {};
+    styleNames.forEach(function(name) {
+      styleTotalQty[name] = cfg.keys.reduce(function(sum, k) { return sum + (styleQty[name][k] || 0); }, 0);
+    });
+    styleNames.sort(function(a, b) { return styleTotalQty[b] - styleTotalQty[a]; });
 
-    var datasets = styleNames.map(function(name, i) {
+    if (!salesChartActiveStyles) salesChartActiveStyles = new Set(styleNames);
+    var displayStyles = styleNames.slice(0, salesDisplayCount);
+
+    var datasets = displayStyles.map(function(name, i) {
       var color = getStyleColor(name, i);
       var data = cfg.keys.map(function(k) { return (styleQty[name] ? (styleQty[name][k] || 0) : 0); });
       return { label: name, data: data, borderColor: color, backgroundColor: color + '15', borderWidth: 2, pointRadius: 3, pointHoverRadius: 6, pointBackgroundColor: color, tension: 0.35, fill: false, hidden: !salesChartActiveStyles.has(name) };
@@ -1278,8 +1288,8 @@ function renderSalesChart() {
 
     var legendEl = document.getElementById('salesLegend');
     legendEl.innerHTML = '';
-    styleNames.forEach(function(name, i) {
-      var color = getStyleColor(name, i);
+    displayStyles.forEach(function(name, i) {
+      var color = getStyleColor(name, styleNames.indexOf(name));
       var chip = document.createElement('button');
       chip.className = 'legend-chip ' + (salesChartActiveStyles.has(name) ? 'active' : 'inactive');
       chip.style.color = color; chip.style.borderColor = color;
@@ -1287,6 +1297,33 @@ function renderSalesChart() {
       chip.onclick = function() { if (salesChartActiveStyles.has(name)) { if (salesChartActiveStyles.size <= 1) return; salesChartActiveStyles.delete(name); } else { salesChartActiveStyles.add(name); } renderSalesChart(); };
       legendEl.appendChild(chip);
     });
+
+    // 加载更多 + 收起按钮
+    var existingBtn = document.getElementById('salesLoadMore');
+    if (existingBtn) existingBtn.remove();
+    var existingCollapse = document.getElementById('salesCollapse');
+    if (existingCollapse) existingCollapse.remove();
+    var btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;gap:8px;justify-content:center;margin:6px 0';
+    if (styleNames.length > salesDisplayCount) {
+      var btn = document.createElement('button');
+      btn.id = 'salesLoadMore';
+      btn.className = 'load-more-btn';
+      btn.textContent = '加载更多（共' + styleNames.length + '款，已显示' + salesDisplayCount + '款）';
+      btn.addEventListener('click', function() { salesDisplayCount += 10; salesChartActiveStyles = null; renderSalesChart(); });
+      btnWrap.appendChild(btn);
+    }
+    if (salesDisplayCount > 10) {
+      var cbtn = document.createElement('button');
+      cbtn.id = 'salesCollapse';
+      cbtn.className = 'load-more-btn';
+      cbtn.textContent = '收起回前10款';
+      cbtn.addEventListener('click', function() { salesDisplayCount = 10; salesChartActiveStyles = null; renderSalesChart(); });
+      btnWrap.appendChild(cbtn);
+    }
+    if (btnWrap.childNodes.length > 0) {
+      legendEl.parentNode.appendChild(btnWrap);
+    }
 
     if (CHARTS.sales) CHARTS.sales.destroy();
     CHARTS.sales = new Chart(document.getElementById('salesChart'), {
@@ -1550,7 +1587,8 @@ function renderInventory() {
     activeMonths.forEach(function(mi) { tableHtml += '<th>' + MONTH_LABELS[mi] + '</th>'; });
     tableHtml += '</tr></thead><tbody>';
 
-    styles.forEach(function(styleName) {
+    var displayStyles = styles.slice(0, heatmapDisplayCount);
+    displayStyles.forEach(function(styleName) {
       tableHtml += '<tr><td>' + styleName + '</td>';
       activeMonths.forEach(function(mi) {
         var monthSales = selfSales.filter(function(s) { return s['款式名称'] === styleName && getMonthFromDate(s['销售日期']) === mi; });
@@ -1565,6 +1603,33 @@ function renderInventory() {
     });
     tableHtml += '</tbody></table>';
     el.innerHTML = tableHtml;
+
+    // 热力图加载更多 + 收起按钮
+    var existingHmBtn = document.getElementById('hmLoadMore');
+    if (existingHmBtn) existingHmBtn.remove();
+    var existingHmCollapse = document.getElementById('hmCollapse');
+    if (existingHmCollapse) existingHmCollapse.remove();
+    var hmBtnWrap = document.createElement('div');
+    hmBtnWrap.style.cssText = 'display:flex;gap:8px;justify-content:center;margin:6px 0';
+    if (styles.length > heatmapDisplayCount) {
+      var hmBtn = document.createElement('button');
+      hmBtn.id = 'hmLoadMore';
+      hmBtn.className = 'load-more-btn';
+      hmBtn.textContent = '加载更多（共' + styles.length + '款，已显示' + heatmapDisplayCount + '款）';
+      hmBtn.addEventListener('click', function() { heatmapDisplayCount += 10; renderInventory(); });
+      hmBtnWrap.appendChild(hmBtn);
+    }
+    if (heatmapDisplayCount > 10) {
+      var hmCbtn = document.createElement('button');
+      hmCbtn.id = 'hmCollapse';
+      hmCbtn.className = 'load-more-btn';
+      hmCbtn.textContent = '收起回前10款';
+      hmCbtn.addEventListener('click', function() { heatmapDisplayCount = 10; renderInventory(); });
+      hmBtnWrap.appendChild(hmCbtn);
+    }
+    if (hmBtnWrap.childNodes.length > 0) {
+      el.parentNode.appendChild(hmBtnWrap);
+    }
 
     // 按款式编码聚合库存
     var styleInventory = {};
@@ -1864,6 +1929,9 @@ function renderAll() {
   invDisplayCount = 10; // reset display count on filter change
   anchorDisplayCount = 10;
   buyerDisplayCount = 10;
+  salesDisplayCount = 10;
+  salesChartActiveStyles = null;
+  heatmapDisplayCount = 10;
   updateAllPeriodBadges();
   renderKPI();
   renderSalesChart();

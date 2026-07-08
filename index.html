@@ -317,7 +317,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 退货退款分析 -->
     <div class="section">
-      <div class="section-label">退货退款监控</div>
+      <div class="section-label">退货退款监控<div class="dim-toggle" id="returnViewToggle"><button class="dim-btn active" data-rview="channel">渠道视角</button><button class="dim-btn" data-rview="platform">平台视角</button></div></div>
       <div class="card">
         <div class="card-head"><div><div class="card-title">退款率趋势</div><div class="card-sub" id="returnSub">仅退款率 vs 退货退款率（按月汇总）</div></div><span class="card-period" id="returnPeriod"></span></div>
         <div class="legend-row" id="returnLegend"></div>
@@ -416,9 +416,11 @@ var invDisplayCount = 10;
 var anchorDisplayCount = 10;
 var buyerDisplayCount = 10;
 var salesDisplayCount = 5;
-var heatmapDisplayCount = 5;
+var heatmapDisplayCount = 10;
+var profitDisplayCount = 10;
 var curPlatform = 'all';
 var profitViewMode = 'channel';
+var returnViewMode = 'channel';
 var curBuyerType = 'all';
 var salesQtyType = 'net';
 var refundMetric = 'amount';
@@ -1338,15 +1340,10 @@ function renderSalesChart() {
 
 function renderProfitCharts() {
   try {
-    var sales = getFilteredSales();
-
-    // View level controlled by profitViewMode toggle
+    var allSales = getFilteredSales();
+    // Platform view = filter to 自营 only, break down by platform
     var isChannel = profitViewMode === 'channel';
-    var singleChannel = null;
-    if (!isChannel && selectedChannels.size === 1) {
-      var ch = Array.from(selectedChannels)[0];
-      if (ch === '自营' || ch === '达播') singleChannel = ch;
-    }
+    var sales = isChannel ? allSales : allSales.filter(function(s) { return s._channel === '自营'; });
     var dimColors = isChannel ? CHANNEL_COLORS : PLATFORM_COLORS;
     var dimLabel = isChannel ? '渠道' : '平台';
 
@@ -1359,13 +1356,12 @@ function renderProfitCharts() {
       document.getElementById('channelPerfTitle').textContent = '渠道表现对比';
       document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 量价关系一目了然';
     } else {
-      var prefix = singleChannel === '自营' ? '自营' : singleChannel === '达播' ? '达播' : '';
-      document.getElementById('modeProfitTitle').textContent = prefix + '平台利润对比';
-      document.getElementById('modeProfitSub').textContent = prefix + '各平台单件毛利差异(元)';
-      document.getElementById('channelProfitTitle').textContent = prefix + '平台利润贡献';
-      document.getElementById('channelProfitSub').textContent = prefix + '各平台累计毛利额';
-      document.getElementById('channelPerfTitle').textContent = prefix + '平台表现对比';
-      document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 按' + dimLabel + '维度';
+      document.getElementById('modeProfitTitle').textContent = '自营平台利润对比';
+      document.getElementById('modeProfitSub').textContent = '自营各平台单件毛利差异(元)';
+      document.getElementById('channelProfitTitle').textContent = '自营平台利润贡献';
+      document.getElementById('channelProfitSub').textContent = '自营各平台累计毛利额';
+      document.getElementById('channelPerfTitle').textContent = '自营平台表现对比';
+      document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 按平台维度';
     }
 
     // Dimension key extractor
@@ -1388,19 +1384,56 @@ function renderProfitCharts() {
       styleDimGP[name][dim].qty += qty;
     });
 
+    // Sort styles by total net qty, slice to profitDisplayCount
+    var styleTotalNetQty = {};
+    styleNames.forEach(function(name) {
+      styleTotalNetQty[name] = 0;
+      Object.keys(styleDimGP[name]).forEach(function(dim) { styleTotalNetQty[name] += styleDimGP[name][dim].qty; });
+    });
+    styleNames.sort(function(a, b) { return styleTotalNetQty[b] - styleTotalNetQty[a]; });
+    var displayStyleNames = styleNames.slice(0, profitDisplayCount);
+
     var dimKeys = [];
     sales.forEach(function(s) { var dim = getDim(s); if (dimKeys.indexOf(dim) === -1) dimKeys.push(dim); });
 
     var modeDatasets = dimKeys.map(function(dim) {
-      var data = styleNames.map(function(name) { var d = styleDimGP[name] && styleDimGP[name][dim]; return d && d.qty > 0 ? Math.round(d.totalGP / d.qty) : 0; });
+      var data = displayStyleNames.map(function(name) { var d = styleDimGP[name] && styleDimGP[name][dim]; return d && d.qty > 0 ? Math.round(d.totalGP / d.qty) : 0; });
       return { label: dim, data: data, backgroundColor: (dimColors[dim] || '#999') + '88', borderColor: dimColors[dim] || '#999', borderWidth: 1.5, borderRadius: 4 };
     });
 
     if (CHARTS.modeProfit) CHARTS.modeProfit.destroy();
     CHARTS.modeProfit = new Chart(document.getElementById('modeProfitChart'), {
-      type: 'bar', data: { labels: styleNames, datasets: modeDatasets },
+      type: 'bar', data: { labels: displayStyleNames, datasets: modeDatasets },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position:'bottom', labels:{font:{size:9},padding:8,usePointStyle:true,pointStyle:'circle'} }, tooltip: { backgroundColor:'#1A1A18', cornerRadius:8, padding:10, callbacks: { label: function(ctx) { return ctx.dataset.label + '：¥' + ctx.parsed.y; } } } }, scales: { x: { grid:{display:false}, ticks:{font:{size:9}} }, y: { beginAtZero:true, grid:{color:'rgba(0,0,0,0.04)'}, ticks:{font:{size:9}, callback:function(v){return '¥'+v;}} } } }
     });
+
+    // Load more / collapse buttons for modeProfitChart
+    var existingPftBtn = document.getElementById('pftLoadMore');
+    if (existingPftBtn) existingPftBtn.remove();
+    var existingPftCollapse = document.getElementById('pftCollapse');
+    if (existingPftCollapse) existingPftCollapse.remove();
+    var pftBtnWrap = document.createElement('div');
+    pftBtnWrap.style.cssText = 'display:flex;gap:8px;justify-content:center;margin:6px 0';
+    if (styleNames.length > profitDisplayCount) {
+      var pftBtn = document.createElement('button');
+      pftBtn.id = 'pftLoadMore';
+      pftBtn.className = 'load-more-btn';
+      pftBtn.textContent = '加载更多（共' + styleNames.length + '款，已显示' + profitDisplayCount + '款）';
+      pftBtn.addEventListener('click', function() { profitDisplayCount += 10; renderProfitCharts(); });
+      pftBtnWrap.appendChild(pftBtn);
+    }
+    if (profitDisplayCount > 10) {
+      var pftCbtn = document.createElement('button');
+      pftCbtn.id = 'pftCollapse';
+      pftCbtn.className = 'load-more-btn';
+      pftCbtn.textContent = '收起回前10款';
+      pftCbtn.addEventListener('click', function() { profitDisplayCount = 10; renderProfitCharts(); });
+      pftBtnWrap.appendChild(pftCbtn);
+    }
+    if (pftBtnWrap.childNodes.length > 0) {
+      var pftCanvasParent = document.getElementById('modeProfitChart').parentNode;
+      pftCanvasParent.appendChild(pftBtnWrap);
+    }
 
     var dimTotalGP = {};
     sales.forEach(function(s) { var dim = getDim(s); if (!dimTotalGP[dim]) dimTotalGP[dim] = 0; dimTotalGP[dim] += s._netQty * s._unitGP; });
@@ -1436,34 +1469,29 @@ function renderProfitCharts() {
 
 function renderReturnChart() {
   try {
-    // Auto-determine breakdown level based on channel selection
-    var viewLevel = 'channel';
-    var singleChannel = null;
-    if (selectedChannels.size === 1) {
-      var ch = Array.from(selectedChannels)[0];
-      if (ch === '自营' || ch === '达播') {
-        viewLevel = 'platform';
-        singleChannel = ch;
-      }
-    }
+    // View level controlled by returnViewMode toggle
+    var isChannel = returnViewMode === 'channel';
 
     // Update subtitle
     var returnSubEl = document.getElementById('returnSub');
-    if (viewLevel === 'channel') {
+    if (isChannel) {
       returnSubEl.textContent = '退款金额趋势（按渠道分线）';
     } else {
-      var prefix = singleChannel === '自营' ? '自营' : '达播';
-      returnSubEl.textContent = prefix + '各平台退款金额趋势';
+      returnSubEl.textContent = '自营各平台退款金额趋势';
     }
 
     // Group key extractor
     function getGroupKey(s) {
-      if (viewLevel === 'channel') return s._channel;
+      if (isChannel) return s._channel;
       return s._platform || '未知';
     }
 
     var allSales = getFilteredSales();
     var allRefunds = getFilteredRefunds();
+    if (!isChannel) {
+      allSales = allSales.filter(function(s) { return s._channel === '自营'; });
+      allRefunds = allRefunds.filter(function(r) { return r._channel === '自营'; });
+    }
 
     // Compute refund metrics per time bucket per group
     var buckets = {}; // { timeKey: { groupName: { only:0, ret:0, total:0, onlyQty:0, retQty:0, totalQty:0 } } }
@@ -1614,15 +1642,15 @@ function renderInventory() {
       hmBtn.id = 'hmLoadMore';
       hmBtn.className = 'load-more-btn';
       hmBtn.textContent = '加载更多（共' + styles.length + '款，已显示' + heatmapDisplayCount + '款）';
-      hmBtn.addEventListener('click', function() { heatmapDisplayCount += 5; renderInventory(); });
+      hmBtn.addEventListener('click', function() { heatmapDisplayCount += 10; renderInventory(); });
       hmBtnWrap.appendChild(hmBtn);
     }
-    if (heatmapDisplayCount > 5) {
+    if (heatmapDisplayCount > 10) {
       var hmCbtn = document.createElement('button');
       hmCbtn.id = 'hmCollapse';
       hmCbtn.className = 'load-more-btn';
-      hmCbtn.textContent = '收起回前5款';
-      hmCbtn.addEventListener('click', function() { heatmapDisplayCount = 5; renderInventory(); });
+      hmCbtn.textContent = '收起回前10款';
+      hmCbtn.addEventListener('click', function() { heatmapDisplayCount = 10; renderInventory(); });
       hmBtnWrap.appendChild(hmCbtn);
     }
     if (hmBtnWrap.childNodes.length > 0) {
@@ -1929,7 +1957,8 @@ function renderAll() {
   buyerDisplayCount = 10;
   salesDisplayCount = 5;
   salesChartActiveStyles = null;
-  heatmapDisplayCount = 5;
+  heatmapDisplayCount = 10;
+  profitDisplayCount = 10;
   updateAllPeriodBadges();
   renderKPI();
   renderSalesChart();
@@ -2044,6 +2073,16 @@ document.querySelectorAll('#profitViewToggle .dim-btn').forEach(function(btn) {
     btn.classList.add('active');
     profitViewMode = btn.dataset.pview;
     renderProfitCharts();
+  });
+});
+
+// 退款监控视角切换
+document.querySelectorAll('#returnViewToggle .dim-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#returnViewToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    returnViewMode = btn.dataset.rview;
+    renderReturnChart();
   });
 });
 

@@ -27,7 +27,8 @@ function apiCall(method, urlPath) {
     const result = execSync(cmd, {
       cwd: '/Users/yangyang/.workbuddy/binaries/node/cli-connector-packages',
       encoding: 'utf8',
-      timeout: 30000
+      timeout: 30000,
+      maxBuffer: 10 * 1024 * 1024  // 10MB — sales 表响应可能超过默认 1MB
     });
     return JSON.parse(result);
   } catch (e) {

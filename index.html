@@ -298,7 +298,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 利润分析 -->
     <div class="section">
-      <div class="section-label">利润分析<div class="dim-toggle" id="profitViewToggle"><button class="dim-btn active" data-pview="channel">渠道视角</button><button class="dim-btn" data-pview="platform">平台视角</button><span class="view-hint" id="profitViewHint" style="display:none;font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap;">仅自营渠道</span></div></div>
+      <div class="section-label">利润分析<div class="dim-toggle" id="profitViewToggle"><button class="dim-btn active" data-pview="channel">渠道视角</button><button class="dim-btn" data-pview="platform">平台视角</button><span class="view-hint" id="profitViewHint" style="display:none;font-size:11px;color:var(--ink);opacity:0.6;margin-left:8px;white-space:nowrap;font-weight:400;">仅自营渠道</span></div></div>
       <div class="card" style="margin-bottom:14px">
         <div class="card-head"><div><div class="card-title" id="modeProfitTitle">销售模式利润对比</div><div class="card-sub" id="modeProfitSub">同款不同渠道的单件毛利差异(元)</div></div><span class="card-period" id="modeProfitPeriod"></span></div>
         <div class="cw h240"><canvas id="modeProfitChart"></canvas></div>
@@ -317,17 +317,17 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 退货退款分析 -->
     <div class="section">
-      <div class="section-label">退货退款监控<div class="dim-toggle" id="returnViewToggle"><button class="dim-btn active" data-rview="channel">渠道视角</button><button class="dim-btn" data-rview="platform">平台视角</button><span class="view-hint" id="returnViewHint" style="display:none;font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap;">仅自营渠道</span></div></div>
+      <div class="section-label">退货退款监控<div class="dim-toggle" id="returnViewToggle"><button class="dim-btn active" data-rview="channel">渠道视角</button><button class="dim-btn" data-rview="platform">平台视角</button><span class="view-hint" id="returnViewHint" style="display:none;font-size:11px;color:var(--ink);opacity:0.6;margin-left:8px;white-space:nowrap;font-weight:400;">仅自营渠道</span></div></div>
       <div class="card">
         <div class="card-head"><div><div class="card-title">退款率趋势</div><div class="card-sub" id="returnSub">仅退款率 vs 退货退款率（按月汇总）</div></div><span class="card-period" id="returnPeriod"></span></div>
         <div class="legend-row" id="returnLegend"></div>
         <div class="cw h220"><canvas id="returnChart"></canvas></div>
       </div>
-      <div class="card">
-        <div class="card-head"><div><div class="card-title">款式退款率监控</div><div class="card-sub">总退款率 = 退货退款率 + 仅退款率 · 红色>70%警示 · 橙色60-70%关注 · 绿色<60%正常</div></div><span class="card-period" id="refundStylePeriod"></span></div>
-        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:11px;color:var(--muted);">
+      <div class="card" style="margin-top:14px;">
+        <div class="card-head"><div><div class="card-title">款式退款率监控</div><div class="card-sub">总退款率 = 退货退款率 + 仅退款率</div></div><span class="card-period" id="refundStylePeriod"></span></div>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:var(--ink);">
           <div style="display:flex;align-items:center;gap:6px;">
-            <span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:linear-gradient(90deg,#E24B4A 0%,#E24B4A 60%,#F0997B 60%,#F0997B 100%);"></span>
+            <span style="display:inline-block;width:18px;height:12px;border-radius:2px;background:linear-gradient(90deg,#E24B4A 0%,#E24B4A 60%,#F0997B 60%,#F0997B 100%);"></span>
             <span>退货退款（深）+ 仅退款（浅）</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;">
@@ -1863,8 +1863,8 @@ function renderRefundStyleChart() {
           c.stroke();
           c.setLineDash([]);
           c.fillStyle = '#E24B4A';
-          c.font = '500 11px system-ui';
-          c.fillText('警示线 70%', x + 4, yScale.top + 12);
+          c.font = '500 10px system-ui';
+          c.fillText('70%', x + 4, yScale.top + 10);
           c.restore();
         }
       }, {

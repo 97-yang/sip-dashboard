@@ -298,7 +298,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 利润分析 -->
     <div class="section">
-      <div class="section-label">利润分析</div>
+      <div class="section-label">利润分析<div class="dim-toggle" id="profitViewToggle"><button class="dim-btn active" data-pview="channel">渠道视角</button><button class="dim-btn" data-pview="platform">平台视角</button></div></div>
       <div class="g2" style="margin-bottom:14px">
         <div class="card">
           <div class="card-head"><div><div class="card-title" id="modeProfitTitle">销售模式利润对比</div><div class="card-sub" id="modeProfitSub">同款不同渠道的单件毛利差异(元)</div></div><span class="card-period" id="modeProfitPeriod"></span></div>
@@ -415,9 +415,10 @@ var invSortDir = 'desc';
 var invDisplayCount = 10;
 var anchorDisplayCount = 10;
 var buyerDisplayCount = 10;
-var salesDisplayCount = 10;
-var heatmapDisplayCount = 10;
+var salesDisplayCount = 5;
+var heatmapDisplayCount = 5;
 var curPlatform = 'all';
+var profitViewMode = 'channel';
 var curBuyerType = 'all';
 var salesQtyType = 'net';
 var refundMetric = 'amount';
@@ -1311,15 +1312,15 @@ function renderSalesChart() {
       btn.id = 'salesLoadMore';
       btn.className = 'load-more-btn';
       btn.textContent = '加载更多（共' + styleNames.length + '款，已显示' + salesDisplayCount + '款）';
-      btn.addEventListener('click', function() { salesDisplayCount += 10; salesChartActiveStyles = null; renderSalesChart(); });
+      btn.addEventListener('click', function() { salesDisplayCount += 5; salesChartActiveStyles = null; renderSalesChart(); });
       btnWrap.appendChild(btn);
     }
-    if (salesDisplayCount > 10) {
+    if (salesDisplayCount > 5) {
       var cbtn = document.createElement('button');
       cbtn.id = 'salesCollapse';
       cbtn.className = 'load-more-btn';
-      cbtn.textContent = '收起回前10款';
-      cbtn.addEventListener('click', function() { salesDisplayCount = 10; salesChartActiveStyles = null; renderSalesChart(); });
+      cbtn.textContent = '收起回前5款';
+      cbtn.addEventListener('click', function() { salesDisplayCount = 5; salesChartActiveStyles = null; renderSalesChart(); });
       btnWrap.appendChild(cbtn);
     }
     if (btnWrap.childNodes.length > 0) {
@@ -1339,18 +1340,13 @@ function renderProfitCharts() {
   try {
     var sales = getFilteredSales();
 
-    // Auto-determine view level based on channel selection
-    var viewLevel = 'channel'; // default: channel overview
+    // View level controlled by profitViewMode toggle
+    var isChannel = profitViewMode === 'channel';
     var singleChannel = null;
-    if (selectedChannels.size === 1) {
+    if (!isChannel && selectedChannels.size === 1) {
       var ch = Array.from(selectedChannels)[0];
-      if (ch === '自营' || ch === '达播') {
-        viewLevel = 'platform';
-        singleChannel = ch;
-      }
+      if (ch === '自营' || ch === '达播') singleChannel = ch;
     }
-
-    var isChannel = viewLevel === 'channel';
     var dimColors = isChannel ? CHANNEL_COLORS : PLATFORM_COLORS;
     var dimLabel = isChannel ? '渠道' : '平台';
 
@@ -1363,7 +1359,7 @@ function renderProfitCharts() {
       document.getElementById('channelPerfTitle').textContent = '渠道表现对比';
       document.getElementById('channelPerfSub').textContent = '左轴=净销量(件) 右轴=净销售额(元) · 量价关系一目了然';
     } else {
-      var prefix = singleChannel === '自营' ? '自营' : '达播';
+      var prefix = singleChannel === '自营' ? '自营' : singleChannel === '达播' ? '达播' : '';
       document.getElementById('modeProfitTitle').textContent = prefix + '平台利润对比';
       document.getElementById('modeProfitSub').textContent = prefix + '各平台单件毛利差异(元)';
       document.getElementById('channelProfitTitle').textContent = prefix + '平台利润贡献';
@@ -1580,8 +1576,9 @@ function renderInventory() {
     var daysInRange = (range.start && range.end) ? Math.max(1, Math.round((range.end.getTime() - range.start.getTime()) / 86400000) + 1) : 30;
 
     var selfSales = sales.filter(function(s) { return s._channel === '自营'; });
-    var styles = [];
-    selfSales.forEach(function(s) { var name = s['款式名称']; if (name && styles.indexOf(name) === -1) styles.push(name); });
+    var styleNetQty = {};
+    selfSales.forEach(function(s) { var name = s['款式名称']; if (name) { if (!styleNetQty[name]) styleNetQty[name] = 0; styleNetQty[name] += s._netQty; } });
+    var styles = Object.keys(styleNetQty).sort(function(a, b) { return styleNetQty[b] - styleNetQty[a]; });
 
     var el = document.getElementById('inventoryHeatmap');
     var tableHtml = '<table class="hm-table"><thead><tr><th></th>';
@@ -1617,15 +1614,15 @@ function renderInventory() {
       hmBtn.id = 'hmLoadMore';
       hmBtn.className = 'load-more-btn';
       hmBtn.textContent = '加载更多（共' + styles.length + '款，已显示' + heatmapDisplayCount + '款）';
-      hmBtn.addEventListener('click', function() { heatmapDisplayCount += 10; renderInventory(); });
+      hmBtn.addEventListener('click', function() { heatmapDisplayCount += 5; renderInventory(); });
       hmBtnWrap.appendChild(hmBtn);
     }
-    if (heatmapDisplayCount > 10) {
+    if (heatmapDisplayCount > 5) {
       var hmCbtn = document.createElement('button');
       hmCbtn.id = 'hmCollapse';
       hmCbtn.className = 'load-more-btn';
-      hmCbtn.textContent = '收起回前10款';
-      hmCbtn.addEventListener('click', function() { heatmapDisplayCount = 10; renderInventory(); });
+      hmCbtn.textContent = '收起回前5款';
+      hmCbtn.addEventListener('click', function() { heatmapDisplayCount = 5; renderInventory(); });
       hmBtnWrap.appendChild(hmCbtn);
     }
     if (hmBtnWrap.childNodes.length > 0) {
@@ -1930,9 +1927,9 @@ function renderAll() {
   invDisplayCount = 10; // reset display count on filter change
   anchorDisplayCount = 10;
   buyerDisplayCount = 10;
-  salesDisplayCount = 10;
+  salesDisplayCount = 5;
   salesChartActiveStyles = null;
-  heatmapDisplayCount = 10;
+  heatmapDisplayCount = 5;
   updateAllPeriodBadges();
   renderKPI();
   renderSalesChart();
@@ -2037,6 +2034,16 @@ document.querySelectorAll('#salesQtyToggle .dim-btn').forEach(function(btn) {
     btn.classList.add('active');
     salesQtyType = btn.dataset.qty;
     renderSalesChart();
+  });
+});
+
+// 利润分析视角切换
+document.querySelectorAll('#profitViewToggle .dim-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('#profitViewToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    profitViewMode = btn.dataset.pview;
+    renderProfitCharts();
   });
 });
 

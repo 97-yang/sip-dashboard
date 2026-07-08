@@ -298,7 +298,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 利润分析 -->
     <div class="section">
-      <div class="section-label">利润分析<div class="dim-toggle" id="profitViewToggle"><button class="dim-btn active" data-pview="channel">渠道视角</button><button class="dim-btn" data-pview="platform">平台视角</button></div></div>
+      <div class="section-label">利润分析<div class="dim-toggle" id="profitViewToggle"><button class="dim-btn active" data-pview="channel">渠道视角</button><button class="dim-btn" data-pview="platform">平台视角</button><span class="view-hint" id="profitViewHint" style="display:none;font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap;">仅自营渠道</span></div></div>
       <div class="g2" style="margin-bottom:14px">
         <div class="card">
           <div class="card-head"><div><div class="card-title" id="modeProfitTitle">销售模式利润对比</div><div class="card-sub" id="modeProfitSub">同款不同渠道的单件毛利差异(元)</div></div><span class="card-period" id="modeProfitPeriod"></span></div>
@@ -317,7 +317,7 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
 
     <!-- 退货退款分析 -->
     <div class="section">
-      <div class="section-label">退货退款监控<div class="dim-toggle" id="returnViewToggle"><button class="dim-btn active" data-rview="channel">渠道视角</button><button class="dim-btn" data-rview="platform">平台视角</button></div></div>
+      <div class="section-label">退货退款监控<div class="dim-toggle" id="returnViewToggle"><button class="dim-btn active" data-rview="channel">渠道视角</button><button class="dim-btn" data-rview="platform">平台视角</button><span class="view-hint" id="returnViewHint" style="display:none;font-size:11px;color:var(--muted);margin-left:6px;white-space:nowrap;">仅自营渠道</span></div></div>
       <div class="card">
         <div class="card-head"><div><div class="card-title">退款率趋势</div><div class="card-sub" id="returnSub">仅退款率 vs 退货退款率（按月汇总）</div></div><span class="card-period" id="returnPeriod"></span></div>
         <div class="legend-row" id="returnLegend"></div>
@@ -1545,7 +1545,7 @@ function renderReturnChart() {
     allSales.forEach(function(s) { var g = getGroupKey(s); if (groupNames.indexOf(g) === -1) groupNames.push(g); });
     allRefunds.forEach(function(r) { var g = getGroupKey(r); if (groupNames.indexOf(g) === -1) groupNames.push(g); });
 
-    var colors = viewLevel === 'channel' ? CHANNEL_COLORS : PLATFORM_COLORS;
+    var colors = isChannel ? CHANNEL_COLORS : PLATFORM_COLORS;
 
     var timeKeys = Object.keys(buckets).sort();
     var labels = timeKeys.map(function(k) { return refundTimeUnit === 'week' ? k.replace('-W', '周') : k.replace('M', '') + '月'; });
@@ -2072,6 +2072,7 @@ document.querySelectorAll('#profitViewToggle .dim-btn').forEach(function(btn) {
     document.querySelectorAll('#profitViewToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     profitViewMode = btn.dataset.pview;
+    document.getElementById('profitViewHint').style.display = profitViewMode === 'platform' ? '' : 'none';
     renderProfitCharts();
   });
 });
@@ -2082,6 +2083,7 @@ document.querySelectorAll('#returnViewToggle .dim-btn').forEach(function(btn) {
     document.querySelectorAll('#returnViewToggle .dim-btn').forEach(function(b) { b.classList.remove('active'); });
     btn.classList.add('active');
     returnViewMode = btn.dataset.rview;
+    document.getElementById('returnViewHint').style.display = returnViewMode === 'platform' ? '' : 'none';
     renderReturnChart();
   });
 });

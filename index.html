@@ -323,6 +323,17 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
         <div class="legend-row" id="returnLegend"></div>
         <div class="cw h220"><canvas id="returnChart"></canvas></div>
       </div>
+      <div class="card">
+        <div class="card-head"><div><div class="card-title">款式退款率监控</div><div class="card-sub">总退款率 = 退货退款率 + 仅退款率 · 红色>70%警示 · 橙色60-70%关注 · 绿色<60%正常</div></div><span class="card-period" id="refundStylePeriod"></span></div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+          <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);">
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#E24B4A;"></span>退货退款率</span>
+            <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#F0997B;opacity:0.7;"></span>仅退款率</span>
+          </div>
+          <span id="refundStyleWarnBadge" style="display:none;font-size:12px;padding:3px 8px;border-radius:4px;background:#FCEBEB;color:#A32D2D;font-weight:500;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:#E24B4A;display:inline-block;"></span><span id="refundStyleWarnText"></span></span>
+        </div>
+        <div class="cw" style="height:auto;min-height:300px;"><canvas id="refundStyleChart"></canvas></div>
+      </div>
     </div>
 
     <!-- 库存与动销 -->
@@ -426,6 +437,7 @@ var salesQtyType = 'net';
 var refundMetric = 'amount';
 var refundType = 'total';
 var refundTimeUnit = 'week';
+var refundStyleDisplayCount = 10;
 var selectedChannels = new Set(['自营', '达播', '买手店']);
 var salesChartActiveStyles = null;
 var CHARTS = {};
@@ -518,6 +530,24 @@ function getWeekKey(d) {
   var diff = dt - start + ((start.getDay() + 6) % 7) * 86400000;
   var week = Math.floor(diff / 604800000) + 1;
   return year + '-W' + String(week).padStart(2, '0');
+}
+
+// parseRefundWeekDate: parse "6.1-6.7" or "7.1-7.1" into a Date (start of range, current year)
+function parseRefundWeekDate(wk) {
+  if (!wk || typeof wk !== 'string') return null;
+  var m = wk.match(/(\d{1,2})\.(\d{1,2})/);
+  if (!m) return null;
+  var mo = parseInt(m[1]);
+  var day = parseInt(m[2]);
+  var y = new Date().getFullYear();
+  return new Date(y, mo - 1, day);
+}
+
+// getRefundDate: return 销售日期 if available, otherwise parse from 退款周次
+function getRefundDate(r) {
+  if (r['销售日期']) return r['销售日期'];
+  if (r._refundDate) return r._refundDate;
+  return null;
 }
 
 function formatDate(d) {
@@ -882,6 +912,26 @@ function processRawData(json) {
     s._cost = cost;
   });
 
+  // Process refund records: set _channel, _platform, _buyerType, 款式名称, _refundDate, _refundOnly, _refundReturn, _refundTotal
+  db.refunds.forEach(function(r) {
+    var channel = r['渠道'];
+    r._channel = getChannelShort(channel);
+    r._platform = getPlatformFromChannel(channel);
+    r._buyerType = getBuyerTypeFromChannel(channel);
+
+    var styleCode = r['款式编码'];
+    var prod = styleCode ? db.productMap[styleCode] : null;
+    if (prod) {
+      r['款式名称'] = prod['款式名称'];
+      r['款式编码'] = prod['款式编码'];
+    }
+
+    r._refundDate = parseRefundWeekDate(r['退款周次']);
+    r._refundOnly = num(r['仅退款金额（款式级）']);
+    r._refundReturn = num(r['退货退款金额（款式级）']);
+    r._refundTotal = num(r['退款总金额（款式级）']) || (r._refundOnly + r._refundReturn);
+  });
+
   return db;
 }
 
@@ -899,7 +949,9 @@ function getFilteredSales() {
 function getFilteredRefunds() {
   if (!DB) return [];
   return DB.refunds.filter(function(r) {
-    return inSelectedPeriods(r['销售日期']);
+    var dt = getRefundDate(r);
+    if (!dt) return false;
+    return inSelectedPeriods(dt);
   });
 }
 
@@ -951,7 +1003,7 @@ function updateAllPeriodBadges() {
 function initFilters(json) {
   var years = new Set();
   DB.sales.forEach(function(s) { var y = getYearFromDate(s['销售日期']); if (y) years.add(y); });
-  DB.refunds.forEach(function(r) { var y = getYearFromDate(r['销售日期']); if (y) years.add(y); });
+  DB.refunds.forEach(function(r) { var y = getYearFromDate(getRefundDate(r)); if (y) years.add(y); });
   curYear = years.size > 0 ? Math.max.apply(null, Array.from(years)) : new Date().getFullYear();
 
   // 默认最近30天（日视图）
@@ -969,7 +1021,7 @@ function initFilters(json) {
   var curMonthKey = curYear + '-' + String(today.getMonth() + 1).padStart(2, '0');
   var monthKeys = new Set();
   DB.sales.forEach(function(s) { var k = getPeriodKeyFromDate(s['销售日期'], 'month'); if (k && k.startsWith(curYear + '-')) monthKeys.add(k); });
-  DB.refunds.forEach(function(r) { var k = getPeriodKeyFromDate(r['销售日期'], 'month'); if (k && k.startsWith(curYear + '-')) monthKeys.add(k); });
+  DB.refunds.forEach(function(r) { var k = getPeriodKeyFromDate(getRefundDate(r), 'month'); if (k && k.startsWith(curYear + '-')) monthKeys.add(k); });
   if (!monthKeys.has(curMonthKey) && monthKeys.size > 0) {
     var sortedMonths = Array.from(monthKeys).sort();
     curMonthKey = sortedMonths[sortedMonths.length - 1];
@@ -1521,7 +1573,7 @@ function renderReturnChart() {
     });
 
     allRefunds.forEach(function(r) {
-      var timeKey = refundTimeUnit === 'week' ? (r['退款周次'] || getWeekKey(r['销售日期'])) : ('M' + String(getMonthFromDate(r['销售日期']) + 1).padStart(2, '0'));
+      var timeKey = refundTimeUnit === 'week' ? (r['退款周次'] || getWeekKey(getRefundDate(r))) : ('M' + String(getMonthFromDate(getRefundDate(r)) + 1).padStart(2, '0'));
       if (!timeKey) return;
       var group = getGroupKey(r);
       var onlyAmt = num(r['仅退款金额（款式级）']);
@@ -1592,6 +1644,263 @@ function renderReturnChart() {
     // Hide unused legend row
     document.getElementById('returnLegend').style.display = 'none';
   } catch(e) { console.error('renderReturnChart error:', e); }
+}
+
+function renderRefundStyleChart() {
+  try {
+    var allSales = getFilteredSales();
+    var allRefunds = getFilteredRefunds();
+
+    // Follow section toggle: platform view = 自营 only
+    if (returnViewMode === 'platform') {
+      allSales = allSales.filter(function(s) { return s._channel === '自营'; });
+      allRefunds = allRefunds.filter(function(r) { return r._channel === '自营'; });
+    }
+
+    // Compute GMV per style
+    var styleGMV = {};
+    var styleRefundOnly = {};
+    var styleRefundReturn = {};
+    var styleNetQty = {};
+
+    allSales.forEach(function(s) {
+      var name = s['款式名称'];
+      if (!name) return;
+      styleGMV[name] = (styleGMV[name] || 0) + s._gmv;
+      styleNetQty[name] = (styleNetQty[name] || 0) + s._netQty;
+    });
+
+    // Also count refund amounts from sales records (embedded refund fields)
+    allSales.forEach(function(s) {
+      var name = s['款式名称'];
+      if (!name) return;
+      styleRefundOnly[name] = (styleRefundOnly[name] || 0) + s._refundOnly;
+      styleRefundReturn[name] = (styleRefundReturn[name] || 0) + s._refundReturn;
+    });
+
+    // Add refund-only records
+    allRefunds.forEach(function(r) {
+      var name = r['款式名称'];
+      if (!name) return;
+      styleRefundOnly[name] = (styleRefundOnly[name] || 0) + r._refundOnly;
+      styleRefundReturn[name] = (styleRefundReturn[name] || 0) + r._refundReturn;
+      // If no sales record for this style, ensure GMV entry exists
+      if (!styleGMV[name]) styleGMV[name] = 0;
+    });
+
+    // Compute refund rates
+    var styleData = [];
+    Object.keys(styleGMV).forEach(function(name) {
+      var gmv = styleGMV[name];
+      var only = styleRefundOnly[name] || 0;
+      var ret = styleRefundReturn[name] || 0;
+      var total = only + ret;
+      if (total <= 0 && gmv <= 0) return; // skip styles with no refund and no sales
+      var totalRate = gmv > 0 ? (total / gmv * 100) : (total > 0 ? 999 : 0);
+      var onlyRate = gmv > 0 ? (only / gmv * 100) : 0;
+      var retRate = gmv > 0 ? (ret / gmv * 100) : 0;
+      styleData.push({
+        name: name,
+        totalRate: totalRate,
+        onlyRate: onlyRate,
+        retRate: retRate,
+        totalAmt: total,
+        onlyAmt: only,
+        retAmt: ret,
+        gmv: gmv
+      });
+    });
+
+    // Sort by total refund rate descending
+    styleData.sort(function(a, b) { return b.totalRate - a.totalRate; });
+
+    // Update period label
+    var range = getCurrentRange();
+    var periodText = range.start && range.end
+      ? formatDate(range.start) + ' ~ ' + formatDate(range.end)
+      : '全部';
+    document.getElementById('refundStylePeriod').textContent = periodText;
+
+    // Update warning badge
+    var warnCount = styleData.filter(function(d) { return d.totalRate > 70; }).length;
+    var badge = document.getElementById('refundStyleWarnBadge');
+    var badgeText = document.getElementById('refundStyleWarnText');
+    if (warnCount > 0) {
+      badge.style.display = 'flex';
+      badgeText.textContent = warnCount + '款超警示线';
+    } else {
+      badge.style.display = 'none';
+    }
+
+    if (styleData.length === 0) {
+      if (CHARTS.refundStyle) { CHARTS.refundStyle.destroy(); CHARTS.refundStyle = null; }
+      var cv = document.getElementById('refundStyleChart');
+      var ctxEmpty = cv.getContext('2d');
+      ctxEmpty.clearRect(0, 0, cv.width, cv.height);
+      ctxEmpty.fillStyle = '#999';
+      ctxEmpty.font = '14px system-ui';
+      ctxEmpty.textAlign = 'center';
+      ctxEmpty.fillText('当前筛选条件下无退款数据', cv.width / 2, 50);
+      return;
+    }
+
+    // Slice to display count
+    var displayData = styleData.slice(0, refundStyleDisplayCount);
+
+    // Color function
+    function getColorPair(total) {
+      if (total > 70) return { ret: '#E24B4A', only: '#F0997B' };
+      if (total > 60) return { ret: '#EF9F27', only: '#FAC775' };
+      return { ret: '#1D9E75', only: '#5DCAA5' };
+    }
+
+    var colorPairs = displayData.map(function(d) { return getColorPair(d.totalRate); });
+
+    // Chart height
+    var chartHeight = Math.max(300, displayData.length * 40 + 60);
+    var wrapper = document.getElementById('refundStyleChart').parentElement;
+    wrapper.style.height = chartHeight + 'px';
+
+    var labels = displayData.map(function(d) { return d.name; });
+    var retRates = displayData.map(function(d) { return Math.min(d.retRate, 200); });
+    var onlyRates = displayData.map(function(d) { return Math.min(d.onlyRate, 200); });
+    var totalRates = displayData.map(function(d) { return d.totalRate; });
+
+    if (CHARTS.refundStyle) CHARTS.refundStyle.destroy();
+    CHARTS.refundStyle = new Chart(document.getElementById('refundStyleChart'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: '退货退款率',
+            data: retRates,
+            backgroundColor: colorPairs.map(function(c) { return c.ret; }),
+            borderColor: colorPairs.map(function(c) { return c.ret; }),
+            borderWidth: 1,
+            borderRadius: 4,
+            barThickness: 24
+          },
+          {
+            label: '仅退款率',
+            data: onlyRates,
+            backgroundColor: colorPairs.map(function(c) { return c.only + 'B3'; }),
+            borderColor: colorPairs.map(function(c) { return c.only; }),
+            borderWidth: 1,
+            borderRadius: 2,
+            barThickness: 24
+          }
+        ]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { right: 40 } },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                var idx = ctx.dataIndex;
+                var d = displayData[idx];
+                if (ctx.datasetIndex === 0) return '退货退款率: ' + d.retRate.toFixed(1) + '% (¥' + Math.round(d.retAmt).toLocaleString('zh-CN') + ')';
+                return '仅退款率: ' + d.onlyRate.toFixed(1) + '% (¥' + Math.round(d.onlyAmt).toLocaleString('zh-CN') + ')';
+              },
+              footer: function(items) {
+                var idx = items[0].dataIndex;
+                var d = displayData[idx];
+                return '总退款率: ' + d.totalRate.toFixed(1) + '% / GMV: ¥' + Math.round(d.gmv).toLocaleString('zh-CN');
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            stacked: true,
+            beginAtZero: true,
+            max: 200,
+            grid: { color: 'rgba(0,0,0,0.05)' },
+            ticks: { callback: function(v) { return v + '%'; }, font: { size: 11 }, color: '#888' }
+          },
+          y: {
+            stacked: true,
+            grid: { display: false },
+            ticks: { font: { size: 12 }, color: '#444' }
+          }
+        }
+      },
+      plugins: [{
+        id: 'warnLineStyle',
+        afterDraw(chart) {
+          var xScale = chart.scales.x;
+          var yScale = chart.scales.y;
+          var x = xScale.getPixelForValue(70);
+          var c = chart.ctx;
+          c.save();
+          c.strokeStyle = '#E24B4A';
+          c.lineWidth = 1.5;
+          c.setLineDash([5, 4]);
+          c.beginPath();
+          c.moveTo(x, yScale.top);
+          c.lineTo(x, yScale.bottom);
+          c.stroke();
+          c.setLineDash([]);
+          c.fillStyle = '#E24B4A';
+          c.font = '500 11px system-ui';
+          c.fillText('警示线 70%', x + 4, yScale.top + 12);
+          c.restore();
+        }
+      }, {
+        id: 'totalLabelsStyle',
+        afterDatasetsDraw(chart) {
+          var ctx = chart.ctx;
+          ctx.save();
+          ctx.font = '500 11px system-ui';
+          ctx.textBaseline = 'middle';
+          totalRates.forEach(function(val, i) {
+            var meta = chart.getDatasetMeta(1);
+            var bar = meta.data[i];
+            if (!bar) return;
+            var displayVal = Math.min(val, 200);
+            ctx.fillStyle = val > 70 ? '#A32D2D' : val > 60 ? '#854F0B' : '#0F6E56';
+            var txt = val > 999 ? 'N/A' : val.toFixed(1) + '%';
+            ctx.fillText(txt, bar.x + 6, bar.y);
+          });
+          ctx.restore();
+        }
+      }]
+    });
+
+    // Load more / collapse buttons
+    var existingBtn = document.getElementById('refundStyleLoadMore');
+    if (existingBtn) existingBtn.remove();
+    var existingCollapse = document.getElementById('refundStyleCollapse');
+    if (existingCollapse) existingCollapse.remove();
+    var btnWrap = document.createElement('div');
+    btnWrap.style.cssText = 'display:flex;gap:8px;justify-content:center;margin:12px 0 0 0';
+    if (styleData.length > refundStyleDisplayCount) {
+      var btn = document.createElement('button');
+      btn.id = 'refundStyleLoadMore';
+      btn.className = 'load-more-btn';
+      btn.textContent = '加载更多（共' + styleData.length + '款，已显示' + refundStyleDisplayCount + '款）';
+      btn.addEventListener('click', function() { refundStyleDisplayCount += 10; renderRefundStyleChart(); });
+      btnWrap.appendChild(btn);
+    }
+    if (refundStyleDisplayCount > 10) {
+      var cbtn = document.createElement('button');
+      cbtn.id = 'refundStyleCollapse';
+      cbtn.className = 'load-more-btn';
+      cbtn.textContent = '收起回前10款';
+      cbtn.addEventListener('click', function() { refundStyleDisplayCount = 10; renderRefundStyleChart(); });
+      btnWrap.appendChild(cbtn);
+    }
+    if (btnWrap.childNodes.length > 0) {
+      var cardEl = document.getElementById('refundStyleChart').closest('.card');
+      cardEl.appendChild(btnWrap);
+    }
+
+  } catch(e) { console.error('renderRefundStyleChart error:', e); }
 }
 
 function renderInventory() {
@@ -1959,11 +2268,13 @@ function renderAll() {
   salesChartActiveStyles = null;
   heatmapDisplayCount = 10;
   profitDisplayCount = 10;
+  refundStyleDisplayCount = 10;
   updateAllPeriodBadges();
   renderKPI();
   renderSalesChart();
   renderProfitCharts();
   renderReturnChart();
+  renderRefundStyleChart();
   renderInventory();
   renderDecisionChart();
   renderRankings();
@@ -2014,7 +2325,7 @@ document.querySelectorAll('.fbtn[data-filter="period"]').forEach(function(btn) {
       // Rebuild year chips based on data years
       var years = new Set();
       DB.sales.forEach(function(s) { var y = getYearFromDate(s['销售日期']); if (y) years.add(y); });
-      DB.refunds.forEach(function(r) { var y = getYearFromDate(r['销售日期']); if (y) years.add(y); });
+      DB.refunds.forEach(function(r) { var y = getYearFromDate(getRefundDate(r)); if (y) years.add(y); });
       buildYearChips(years);
     }
     updateRangeSelectorVisibility();
@@ -2085,6 +2396,7 @@ document.querySelectorAll('#returnViewToggle .dim-btn').forEach(function(btn) {
     returnViewMode = btn.dataset.rview;
     document.getElementById('returnViewHint').style.display = returnViewMode === 'platform' ? '' : 'none';
     renderReturnChart();
+    renderRefundStyleChart();
   });
 });
 

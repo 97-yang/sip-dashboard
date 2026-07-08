@@ -98,7 +98,7 @@ input[type="date"].fsel::-webkit-calendar-picker-indicator{opacity:.5;cursor:poi
 
 /* CHART */
 .cw{position:relative;width:100%}
-.cw.h220{height:220px}.cw.h260{height:260px}.cw.h200{height:200px}.cw.h320{height:320px}
+.cw.h220{height:220px}.cw.h260{height:260px}.cw.h200{height:200px}.cw.h240{height:240px}.cw.h320{height:320px}
 
 /* LEGEND */
 .legend-row{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
@@ -325,12 +325,24 @@ code{background:var(--accent-lt);padding:1px 4px;border-radius:3px;font-size:10p
       </div>
       <div class="card">
         <div class="card-head"><div><div class="card-title">款式退款率监控</div><div class="card-sub">总退款率 = 退货退款率 + 仅退款率 · 红色>70%警示 · 橙色60-70%关注 · 绿色<60%正常</div></div><span class="card-period" id="refundStylePeriod"></span></div>
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-          <div style="display:flex;gap:12px;font-size:12px;color:var(--muted);">
-            <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#E24B4A;"></span>退货退款率</span>
-            <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:2px;background:#F0997B;opacity:0.7;"></span>仅退款率</span>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:11px;color:var(--muted);">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:linear-gradient(90deg,#E24B4A 0%,#E24B4A 60%,#F0997B 60%,#F0997B 100%);"></span>
+            <span>退货退款（深）+ 仅退款（浅）</span>
           </div>
-          <span id="refundStyleWarnBadge" style="display:none;font-size:12px;padding:3px 8px;border-radius:4px;background:#FCEBEB;color:#A32D2D;font-weight:500;align-items:center;gap:4px;"><span style="width:6px;height:6px;border-radius:50%;background:#E24B4A;display:inline-block;"></span><span id="refundStyleWarnText"></span></span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:#E24B4A;"></span>
+            <span>&gt;70% 警示</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:#EF9F27;"></span>
+            <span>60-70% 关注</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="display:inline-block;width:14px;height:12px;border-radius:2px;background:#1D9E75;"></span>
+            <span>&lt;60% 正常</span>
+          </div>
+          <span id="refundStyleWarnBadge" style="display:none;font-size:12px;padding:3px 8px;border-radius:4px;background:#FCEBEB;color:#A32D2D;font-weight:500;align-items:center;gap:4px;margin-left:auto;"><span style="width:6px;height:6px;border-radius:50%;background:#E24B4A;display:inline-block;"></span><span id="refundStyleWarnText"></span></span>
         </div>
         <div class="cw" style="height:auto;min-height:300px;"><canvas id="refundStyleChart"></canvas></div>
       </div>
@@ -1483,8 +1495,8 @@ function renderProfitCharts() {
       pftBtnWrap.appendChild(pftCbtn);
     }
     if (pftBtnWrap.childNodes.length > 0) {
-      var pftCanvasParent = document.getElementById('modeProfitChart').parentNode;
-      pftCanvasParent.appendChild(pftBtnWrap);
+      var pftCardEl = document.getElementById('modeProfitChart').closest('.card');
+      pftCardEl.appendChild(pftBtnWrap);
     }
 
     var dimTotalGP = {};
@@ -1696,9 +1708,12 @@ function renderRefundStyleChart() {
       var ret = styleRefundReturn[name] || 0;
       var total = only + ret;
       if (total <= 0 && gmv <= 0) return; // skip styles with no refund and no sales
-      var totalRate = gmv > 0 ? (total / gmv * 100) : (total > 0 ? 999 : 0);
+      // If GMV=0 but has refund, treat as edge case (likely data quality issue)
+      // Don't fake 999% — show as 0% with N/A marker in label
+      var totalRate = gmv > 0 ? (total / gmv * 100) : 0;
       var onlyRate = gmv > 0 ? (only / gmv * 100) : 0;
       var retRate = gmv > 0 ? (ret / gmv * 100) : 0;
+      var hasNoGMV = gmv <= 0 && total > 0;
       styleData.push({
         name: name,
         totalRate: totalRate,
@@ -1707,7 +1722,8 @@ function renderRefundStyleChart() {
         totalAmt: total,
         onlyAmt: only,
         retAmt: ret,
-        gmv: gmv
+        gmv: gmv,
+        hasNoGMV: hasNoGMV
       });
     });
 
@@ -1863,8 +1879,11 @@ function renderRefundStyleChart() {
             var bar = meta.data[i];
             if (!bar) return;
             var displayVal = Math.min(val, 200);
-            ctx.fillStyle = val > 70 ? '#A32D2D' : val > 60 ? '#854F0B' : '#0F6E56';
-            var txt = val > 999 ? 'N/A' : val.toFixed(1) + '%';
+            // N/A marker (no sales) uses gray
+            var d = displayData[i];
+            var isNA = d && d.hasNoGMV;
+            ctx.fillStyle = isNA ? '#888' : (val > 70 ? '#A32D2D' : val > 60 ? '#854F0B' : '#0F6E56');
+            var txt = isNA ? '无销售数据' : (val > 999 ? 'N/A' : val.toFixed(1) + '%');
             ctx.fillText(txt, bar.x + 6, bar.y);
           });
           ctx.restore();

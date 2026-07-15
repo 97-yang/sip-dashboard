@@ -37,30 +37,29 @@ function apiCall(method, urlPath) {
   }
 }
 
-// 分页获取所有记录
+// 分页获取所有记录（使用 --page-all 自动分页，避免 API page_token 不变化的 bug）
 function fetchAllRecords(tableId) {
-  const allRecords = [];
-  let pageToken = undefined;
-  let page = 0;
-
-  do {
-    let url = `/open-apis/bitable/v1/apps/${BASE_TOKEN}/tables/${tableId}/records?page_size=500`;
-    if (pageToken) url += `&page_token=${pageToken}`;
-
-    const json = apiCall('GET', url);
+  const url = `/open-apis/bitable/v1/apps/${BASE_TOKEN}/tables/${tableId}/records?page_size=500`;
+  const cmd = `${LARK_CLI} ${CLI_PATH} api GET "${url}" --page-all --page-limit 0 2>/dev/null`;
+  try {
+    const result = execSync(cmd, {
+      cwd: '/Users/yangyang/.workbuddy/binaries/node/cli-connector-packages',
+      encoding: 'utf8',
+      timeout: 120000,           // 2 分钟超时（--page-all 会自动合并所有页）
+      maxBuffer: 50 * 1024 * 1024  // 50MB
+    });
+    const json = JSON.parse(result);
     if (!json || !json.ok || !json.data) {
-      console.error(`  Failed to fetch records from ${tableId}: ok=${json?.ok}, msg=${json?.msg}`);
-      break;
+      console.error(`  Failed to fetch records from ${tableId}: ok=${json?.ok}`);
+      return [];
     }
-
     const items = json.data.items || [];
-    allRecords.push(...items);
-    pageToken = json.data.has_more ? json.data.page_token : undefined;
-    page++;
-    console.log(`    page ${page}: ${items.length} records`);
-  } while (pageToken);
-
-  return allRecords;
+    console.log(`    fetched ${items.length} records (total: ${json.data.total})`);
+    return items;
+  } catch (e) {
+    console.error(`  API call failed: ${e.message.slice(0, 200)}`);
+    return [];
+  }
 }
 
 // 获取字段元数据
